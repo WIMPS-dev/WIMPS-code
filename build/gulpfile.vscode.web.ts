@@ -33,7 +33,7 @@ const version = (quality && quality !== 'stable') ? `${packageJson.version}-${qu
 function runEsbuildBundle(outDir: string, minify: boolean, nls: boolean, sourceMapBaseUrl?: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const scriptPath = path.join(REPO_ROOT, 'build/next/index.ts');
-		const args = [scriptPath, 'bundle', '--out', outDir, '--target', 'web'];
+		const args = [scriptPath, 'bundle', '--out', outDir, '--target', 'server-web'];
 		if (minify) {
 			args.push('--minify');
 			args.push('--mangle-privates');
