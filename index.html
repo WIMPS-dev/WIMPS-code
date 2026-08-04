@@ -1,0 +1,48 @@
+<!-- Copyright (C) Microsoft Corporation. All rights reserved. -->
+<!DOCTYPE html>
+<html>
+	<head>
+		<script>
+			performance.mark('code/didStartRenderer');
+		</script>
+		<meta charset="utf-8" />
+
+		<!-- Mobile tweaks -->
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Code">
+		<link rel="apple-touch-icon" href="/code-192.png" />
+
+		<!-- Disable pinch zooming -->
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+
+		<!-- Workbench Configuration -->
+		<meta id="vscode-workbench-web-configuration" data-settings="{&quot;callbackRoute&quot;:&quot;/callback&quot;,&quot;enableWorkspaceTrust&quot;:false,&quot;folderUri&quot;:{&quot;scheme&quot;:&quot;vscode-userdata&quot;,&quot;authority&quot;:&quot;&quot;,&quot;path&quot;:&quot;/WIMPS&quot;,&quot;query&quot;:&quot;&quot;,&quot;fragment&quot;:&quot;&quot;},&quot;configurationDefaults&quot;:{&quot;chat.agentFilesLocations&quot;:{&quot;.github/agents&quot;:false,&quot;.claude/agents&quot;:false,&quot;~/.copilot/agents&quot;:false,&quot;~/.claude/agents&quot;:false},&quot;chat.agentSkillsLocations&quot;:{&quot;.agents/skills&quot;:false,&quot;.github/skills&quot;:false,&quot;.claude/skills&quot;:false,&quot;~/.agents/skills&quot;:false,&quot;~/.copilot/skills&quot;:false,&quot;~/.claude/skills&quot;:false},&quot;chat.hookFilesLocations&quot;:{&quot;.github/hooks&quot;:false,&quot;.claude/settings.local.json&quot;:false,&quot;.claude/settings.json&quot;:false,&quot;~/.copilot/hooks&quot;:false,&quot;~/.claude/settings.json&quot;:false},&quot;chat.instructionsFilesLocations&quot;:{&quot;.github/instructions&quot;:false,&quot;.claude/rules&quot;:false,&quot;~/.copilot/instructions&quot;:false,&quot;~/.claude/rules&quot;:false},&quot;workbench.colorTheme&quot;:&quot;WIMPS Dark&quot;,&quot;workbench.iconTheme&quot;:&quot;wimps-assembly-icons&quot;,&quot;workbench.startupEditor&quot;:&quot;none&quot;,&quot;explorer.compactFolders&quot;:false},&quot;initialColorTheme&quot;:{&quot;themeType&quot;:&quot;dark&quot;,&quot;colors&quot;:{&quot;editor.background&quot;:&quot;#0b1020&quot;,&quot;editor.foreground&quot;:&quot;#f8fafc&quot;,&quot;sideBar.background&quot;:&quot;#162033&quot;,&quot;sideBar.foreground&quot;:&quot;#f8fafc&quot;,&quot;sideBarTitle.foreground&quot;:&quot;#f8fafc&quot;,&quot;sideBarSectionHeader.background&quot;:&quot;#0c1628&quot;,&quot;sideBarSectionHeader.border&quot;:&quot;#2a3d5c&quot;,&quot;activityBar.background&quot;:&quot;#0c1628&quot;,&quot;activityBar.foreground&quot;:&quot;#f8fafc&quot;,&quot;activityBar.inactiveForeground&quot;:&quot;#94a3b8&quot;,&quot;activityBarBadge.background&quot;:&quot;#3b82f6&quot;,&quot;activityBarBadge.foreground&quot;:&quot;#f8fafc&quot;,&quot;statusBar.background&quot;:&quot;#0c1628&quot;,&quot;statusBar.foreground&quot;:&quot;#f8fafc&quot;,&quot;titleBar.activeBackground&quot;:&quot;#0c1628&quot;,&quot;titleBar.activeForeground&quot;:&quot;#f8fafc&quot;,&quot;titleBar.inactiveBackground&quot;:&quot;#0c1628&quot;,&quot;titleBar.inactiveForeground&quot;:&quot;#94a3b8&quot;,&quot;editorGroupHeader.tabsBackground&quot;:&quot;#0c1628&quot;,&quot;editorGroupHeader.tabsBorder&quot;:&quot;#2a3d5c&quot;,&quot;editorGroupHeader.noTabsBackground&quot;:&quot;#0b1020&quot;,&quot;editorGroup.border&quot;:&quot;#2a3d5c&quot;,&quot;tab.activeBackground&quot;:&quot;#0b1020&quot;,&quot;tab.inactiveBackground&quot;:&quot;#0c1628&quot;,&quot;tab.unfocusedActiveBackground&quot;:&quot;#0b1020&quot;,&quot;tab.unfocusedInactiveBackground&quot;:&quot;#0c1628&quot;,&quot;tab.hoverBackground&quot;:&quot;#162033&quot;,&quot;tab.unfocusedHoverBackground&quot;:&quot;#162033&quot;,&quot;tab.activeForeground&quot;:&quot;#f8fafc&quot;,&quot;tab.inactiveForeground&quot;:&quot;#94a3b8&quot;,&quot;tab.unfocusedActiveForeground&quot;:&quot;#f8fafc&quot;,&quot;tab.unfocusedInactiveForeground&quot;:&quot;#94a3b8&quot;,&quot;tab.activeBorderTop&quot;:&quot;#3b82f6&quot;,&quot;tab.activeBorder&quot;:&quot;#0b1020&quot;,&quot;tab.border&quot;:&quot;#2a3d5c&quot;,&quot;panel.background&quot;:&quot;#0b1020&quot;,&quot;panel.border&quot;:&quot;#2a3d5c&quot;,&quot;terminal.background&quot;:&quot;#0b1020&quot;,&quot;terminal.foreground&quot;:&quot;#cbd5e1&quot;,&quot;input.background&quot;:&quot;#111827&quot;,&quot;input.foreground&quot;:&quot;#f8fafc&quot;,&quot;input.border&quot;:&quot;#2a3d5c&quot;,&quot;button.background&quot;:&quot;#111827&quot;,&quot;button.foreground&quot;:&quot;#f8fafc&quot;,&quot;button.hoverBackground&quot;:&quot;#1e3355&quot;,&quot;list.activeSelectionBackground&quot;:&quot;#1e3355&quot;,&quot;list.activeSelectionForeground&quot;:&quot;#f8fafc&quot;,&quot;list.inactiveSelectionBackground&quot;:&quot;#162033&quot;,&quot;list.hoverBackground&quot;:&quot;#162033&quot;,&quot;focusBorder&quot;:&quot;#3b82f6&quot;,&quot;editorLineNumber.foreground&quot;:&quot;#94a3b8&quot;,&quot;editorCursor.foreground&quot;:&quot;#f8fafc&quot;,&quot;editor.selectionBackground&quot;:&quot;#1e3355&quot;,&quot;editor.lineHighlightBackground&quot;:&quot;#162033&quot;,&quot;editorGutter.background&quot;:&quot;#0b1020&quot;,&quot;descriptionForeground&quot;:&quot;#94a3b8&quot;,&quot;foreground&quot;:&quot;#f8fafc&quot;,&quot;widget.border&quot;:&quot;#2a3d5c&quot;,&quot;dropdown.background&quot;:&quot;#162033&quot;,&quot;dropdown.foreground&quot;:&quot;#f8fafc&quot;,&quot;dropdown.border&quot;:&quot;#2a3d5c&quot;}},&quot;developmentOptions&quot;:{},&quot;productConfiguration&quot;:{&quot;enableTelemetry&quot;:false}}">
+
+		<!-- Workbench Auth Session -->
+		<meta id="vscode-workbench-auth-session" data-settings="">
+
+		<!-- Workbench Icon/Manifest/CSS -->
+		<link rel="icon" href="/favicon.ico" type="image/x-icon" />
+		<link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
+		<link rel="stylesheet" href="/out/vs/code/browser/workbench/workbench.css">
+
+	</head>
+
+	<body aria-label="">
+	</body>
+
+	<!-- Startup (do not modify order of script tags!) -->
+	<script>
+		const baseUrl = new URL('', window.location.origin).toString();
+		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
+	</script>
+	<script>
+		performance.mark('code/willLoadWorkbenchMain');
+	</script>
+	<!-- always ensure built in english NLS messages -->
+	<script type="module" src="/out/nls.messages.js"></script>
+	<!-- attempt to load NLS messages in case non-english -->
+	<script type="module" src=""></script>
+	<script type="module" src="/out/vs/code/browser/workbench/workbench.js"></script>
+</html>
