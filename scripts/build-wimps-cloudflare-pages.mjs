@@ -15,9 +15,41 @@ const allowedFrameAncestors = (process.env.WIMPS_FRAME_ANCESTORS ?? "'self' http
 const callbackRoute = process.env.WIMPS_CALLBACK_ROUTE ?? '/callback';
 const assetBaseUrl = process.env.WIMPS_WEB_BASE_URL ?? '';
 const workspaceFolderPath = process.env.WIMPS_WORKSPACE_FOLDER_PATH ?? '/WIMPS';
+const wimpsLogoDataUri = 'data:image/svg+xml,%3Csvg width%3D%2232%22 height%3D%2232%22 viewBox%3D%220 0 32 32%22 xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Crect width%3D%2232%22 height%3D%2232%22 rx%3D%227%22 fill%3D%22%230f172a%22/%3E%3Crect x%3D%229%22 y%3D%229%22 width%3D%2214%22 height%3D%2214%22 rx%3D%222%22 fill%3D%22%232563eb%22/%3E%3Crect x%3D%224%22 y%3D%2211%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%224%22 y%3D%2218%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2223%22 y%3D%2211%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2223%22 y%3D%2218%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2211%22 y%3D%224%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2218%22 y%3D%224%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2211%22 y%3D%2223%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2218%22 y%3D%2223%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2213%22 y%3D%2213%22 width%3D%226%22 height%3D%226%22 rx%3D%221%22 fill%3D%22white%22 opacity%3D%220.92%22/%3E%3C/svg%3E';
 
 function asHtmlAttributeJson(value) {
 	return JSON.stringify(value).replace(/"/g, '&quot;');
+}
+
+function withWimpsBranding(indexHtml) {
+	const style = `
+	<style id="wimps-code-branding">
+		.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
+			align-items: center;
+			background-image: url("${wimpsLogoDataUri}") !important;
+			background-position: 8px center !important;
+			background-repeat: no-repeat !important;
+			background-size: 18px 18px !important;
+			color: var(--vscode-titleBar-activeForeground);
+			display: inline-flex;
+			font-size: 12px;
+			font-weight: 800;
+			height: 100%;
+			line-height: 1;
+			width: 84px;
+		}
+
+		.monaco-workbench .part.titlebar.inactive > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
+			color: var(--vscode-titleBar-inactiveForeground);
+		}
+
+		.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon)::after {
+			content: "WIMPS";
+			margin-left: 32px;
+		}
+	</style>`;
+
+	return indexHtml.replace('</head>', `${style}\n</head>`);
 }
 
 async function assertReadable(filePath, message) {
@@ -222,7 +254,9 @@ async function writeStaticWorkbench() {
 			'workbench.colorTheme': 'WIMPS Dark',
 			'workbench.iconTheme': 'wimps-assembly-icons',
 			'workbench.startupEditor': 'none',
-			'explorer.compactFolders': false
+			'explorer.compactFolders': false,
+			'window.title': '${activeEditorShort}${separator}WIMPS Code',
+			'window.titleSeparator': ' - '
 		},
 		initialColorTheme: {
 			themeType: 'dark',
@@ -230,6 +264,9 @@ async function writeStaticWorkbench() {
 		},
 		developmentOptions: {},
 		productConfiguration: {
+			nameShort: 'WIMPS Code',
+			nameLong: 'WIMPS Code',
+			applicationName: 'wimps-code',
 			extensionsGallery: undefined,
 			settingsSyncUrl: undefined,
 			updateUrl: undefined,
@@ -262,6 +299,8 @@ async function writeStaticWorkbench() {
 			.replace('/out/vs/code/browser/workbench/workbench.css', '/out/vs/workbench/workbench.web.main.internal.css')
 			.replace('/out/vs/code/browser/workbench/workbench.js', '/out/vs/workbench/workbench.web.main.internal.js');
 	}
+
+	indexHtml = withWimpsBranding(indexHtml);
 
 	await fs.writeFile(path.join(outRoot, 'index.html'), indexHtml);
 
