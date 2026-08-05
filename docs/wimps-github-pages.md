@@ -8,7 +8,7 @@ Use the Node version from `.nvmrc`:
 
 ```bash
 nvm use
-npm run install:wimps-cloudflare
+npm run install:wimps
 WIMPS_GITHUB_PAGES_CNAME="vscode.example.edu" npm run package:wimps-github-pages
 ```
 
@@ -24,11 +24,7 @@ If `../vscode-web` already exists, regenerate only the GitHub Pages wrapper:
 WIMPS_GITHUB_PAGES_CNAME="vscode.example.edu" npm run prepare:wimps-github-pages
 ```
 
-`npm run package:wimps-github-pages` copies `~/projects/WIMPS-extension` into the VS Code fork as a generated built-in web extension before packaging. Override the extension source with:
-
-```bash
-WIMPS_EXTENSION_DIR="/path/to/WIMPS-extension" WIMPS_GITHUB_PAGES_CNAME="vscode.example.edu" npm run package:wimps-github-pages
-```
+`npm run package:wimps-github-pages` builds the vendored WIMPS extension in `extensions/wimps-vscode` before packaging it as a built-in web extension.
 
 ## GitHub Pages Settings
 
@@ -55,6 +51,20 @@ WIMPS_GITHUB_PAGES_CNAME="vscode.example.edu" npm run prepare:wimps-github-pages
 ```
 
 Then configure DNS for that subdomain according to the GitHub Pages custom domain instructions for your organization.
+
+## Update Flow
+
+Every time `main` changes, rebuild and publish the generated Pages branch:
+
+```bash
+git fetch origin
+git pull --ff-only origin main
+npm run deploy:wimps-github-pages
+```
+
+The deploy script rebuilds `dist/github-pages`, updates `CNAME`, and pushes the artifact to `gh-pages` with `--force-with-lease`.
+
+GitHub Actions does the same on every push to `main`.
 
 ## Iframe Policy
 

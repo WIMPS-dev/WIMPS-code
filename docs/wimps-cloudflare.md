@@ -12,6 +12,8 @@ npm run install:wimps-cloudflare
 npm run package:wimps-cloudflare
 ```
 
+`npm run package:wimps-cloudflare` builds the vendored WIMPS extension in `extensions/wimps-vscode` before packaging it as a built-in web extension.
+
 The Cloudflare Pages artifact is written to:
 
 ```txt
@@ -67,29 +69,37 @@ VITE_VSCODE_WEB_URL=https://vscode.wimps.dev/
 The build writes `_headers` with:
 
 ```http
-Content-Security-Policy: frame-ancestors https://wimps.dev https://www.wimps.dev http://localhost:5173
+Content-Security-Policy: frame-ancestors 'self' https://wimps-vscode.pages.dev https://vscode.wimps.dev https://wimps.dev https://www.wimps.dev http://localhost:5173
 ```
 
 Override allowed parents with:
 
 ```bash
-WIMPS_FRAME_ANCESTORS="https://wimps.dev https://preview.wimps.dev" npm run prepare:wimps-cloudflare
+WIMPS_FRAME_ANCESTORS="'self' https://vscode.wimps.dev https://wimps.dev https://preview.wimps.dev" npm run prepare:wimps-cloudflare
 ```
+
+Keep `'self'` in the list. VS Code Web starts its browser extension host inside an internal iframe on the VS Code origin; without `'self'`, commands can hang on `Activating Extensions...`.
 
 Do not add `X-Frame-Options: DENY` or `X-Frame-Options: SAMEORIGIN` on Cloudflare.
 
 ## Current Limits
 
-This artifact is iframe-ready, but it is not yet WIMPS-account-aware.
+This artifact is iframe-ready and preloads the WIMPS web extension plus its `WIMPS Dark` color theme and `wimps-assembly-icons` file icon theme. It is not yet WIMPS-account-aware.
 
 Current storage:
 
+- The default workspace opens at `vscode-userdata:/workspace`, backed by IndexedDB on `vscode.wimps.dev`.
 - VS Code settings and user data use IndexedDB on `vscode.wimps.dev`.
 - Browser file access uses the browser File System Access API when available.
 - WIMPS account sync needs a custom file-system provider backed by IndexedDB and the WIMPS backend.
 
+Override the default browser workspace path with:
+
+```bash
+WIMPS_WORKSPACE_FOLDER_PATH="/workspace" npm run prepare:wimps-cloudflare
+```
+
 Next work:
 
-1. Bundle `~/projects/WIMPS-extension` as a built-in web extension.
-2. Add a `wimps://` file-system provider.
-3. Bridge WIMPS auth into the iframe with `postMessage` and short-lived API tokens.
+1. Add a `wimps://` file-system provider.
+2. Bridge WIMPS auth into the iframe with `postMessage` and short-lived API tokens.

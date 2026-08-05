@@ -1,0 +1,98 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "RISC-V Assembly",
+  "scopeName": "source.riscv",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#labels" },
+    { "include": "#directives" },
+    { "include": "#registers" },
+    { "include": "#numbers" },
+    { "include": "#instructions" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.riscv",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.riscv",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.riscv",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.riscv",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.riscv",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "labels": {
+      "patterns": [
+        {
+          "name": "entity.name.label.riscv",
+          "match": "\\b[A-Za-z_]\\w*:"
+        }
+      ]
+    },
+    "directives": {
+      "patterns": [
+        {
+          "name": "keyword.directive.riscv",
+          "match": "\\.(?:align|ascii|asciz|asciiz|attribute|balign|bss|byte|comm|data|double|dword|end_macro|eqv|extern|file|float|globl|global|half|include|macro|option|section|space|string|text|word|zero|2byte|4byte|8byte)\\b"
+        }
+      ]
+    },
+    "registers": {
+      "patterns": [
+        {
+          "name": "variable.other.register.riscv",
+          "match": "\\b(?:zero|ra|sp|gp|tp|t[0-6]|s(?:[0-9]|1[01])|a[0-7]|fp|x(?:[0-9]|[12][0-9]|3[01]))\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.riscv",
+          "match": "(?<![\\w$])-?0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.riscv",
+          "match": "(?<![\\w$])-?0b[01]+\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.riscv",
+          "match": "(?<![\\w$])-?\\d+\\b"
+        }
+      ]
+    },
+    "instructions": {
+      "patterns": [
+        {
+          "name": "keyword.instruction.riscv",
+          "match": "(?i)(?<![\\w$])(?:add|addi|addiw|addw|and|andi|auipc|beq|beqz|bge|bgeu|bgez|bgt|bgtu|bgtz|ble|bleu|blez|blt|bltu|bltz|bne|bnez|call|div|divu|divuw|divw|ebreak|ecall|fadd\\.d|fadd\\.s|fcvt\\.[a-z.]+|fdiv\\.d|fdiv\\.s|fld|flw|fmul\\.d|fmul\\.s|fsd|fsw|fsub\\.d|fsub\\.s|j|jal|jalr|jr|la|lb|lbu|ld|lh|lhu|li|lui|lw|lwu|mv|mul|mulh|mulhsu|mulhu|mulw|neg|nop|not|or|ori|rem|remu|remuw|remw|ret|sb|sd|seqz|sgtz|sh|sll|slli|slliw|sllw|slt|slti|sltiu|sltu|snez|sra|srai|sraiw|sraw|srl|srli|srliw|srlw|sub|subw|sw|tail|xor|xori)\\b"
+        }
+      ]
+    }
+  }
+}

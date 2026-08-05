@@ -678,9 +678,9 @@ function fileContentMapperPlugin(outDir: string, target: BuildTarget): esbuild.P
 				// Inject built-in extensions list
 				if (contents.includes('/*BUILD->INSERT_BUILTIN_EXTENSIONS*/')) {
 					if (builtinExtensionsReplacement === undefined) {
-						// Web target uses .build/web/extensions (from compileWebExtensionsBuildTask)
-						// Other targets use .build/extensions
-						const extensionsRoot = target === 'web' ? '.build/web/extensions' : '.build/extensions';
+						// Web targets use .build/web/extensions (from compileWebExtensionsBuildTask).
+						// server-web is the static browser workbench target used by WIMPS.
+						const extensionsRoot = target === 'web' || target === 'server-web' ? '.build/web/extensions' : '.build/extensions';
 						const builtinExtensions = JSON.stringify(scanBuiltinExtensions(extensionsRoot));
 						// Remove the outer brackets since the placeholder is inside an array literal
 						builtinExtensionsReplacement = builtinExtensions.substring(1, builtinExtensions.length - 1);

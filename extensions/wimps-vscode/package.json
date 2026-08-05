@@ -1,0 +1,569 @@
+{
+  "name": "wimps-vscode",
+  "displayName": "WIMPS",
+  "description": "Run MIPS and RISC-V assembly programs inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "wimps",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "categories": [
+    "Education",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:mips",
+    "onLanguage:riscv",
+    "onCommand:wimps.assembleCurrentFile",
+    "onCommand:wimps.runCurrentFile",
+    "onCommand:wimps.continueCurrentFile",
+    "onCommand:wimps.stepCurrentFile",
+    "onCommand:wimps.stepBackCurrentFile",
+    "onCommand:wimps.runToCursor",
+    "onCommand:wimps.editMemoryWord",
+    "onCommand:wimps.editMemoryWordAtItem",
+    "onCommand:wimps.setRegisterValue",
+    "onCommand:wimps.setRegisterValueAtItem",
+    "onCommand:wimps.configureCache",
+    "onCommand:wimps.copyAssemblerListing",
+    "onCommand:wimps.copyMemoryDump",
+    "onCommand:wimps.resetSimulator",
+    "onCommand:wimps.openOutput",
+    "onCommand:wimps.selectArchitecture"
+  ],
+  "main": "./out/extension.js",
+  "browser": "./out/extension-web.js",
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "wimps.assembleCurrentFile",
+        "title": "Assemble Current File with WIMPS",
+        "category": "WIMPS",
+        "icon": {
+          "light": "resources/action-assemble.svg",
+          "dark": "resources/action-assemble.svg"
+        }
+      },
+      {
+        "command": "wimps.runCurrentFile",
+        "title": "Run Current File with WIMPS",
+        "category": "WIMPS",
+        "icon": {
+          "light": "resources/action-run.svg",
+          "dark": "resources/action-run.svg"
+        }
+      },
+      {
+        "command": "wimps.continueCurrentFile",
+        "title": "Continue Current File with WIMPS",
+        "category": "WIMPS",
+        "icon": {
+          "light": "resources/action-continue.svg",
+          "dark": "resources/action-continue.svg"
+        }
+      },
+      {
+        "command": "wimps.stepCurrentFile",
+        "title": "Step Current File with WIMPS",
+        "category": "WIMPS",
+        "icon": {
+          "light": "resources/action-step.svg",
+          "dark": "resources/action-step.svg"
+        }
+      },
+      {
+        "command": "wimps.stepBackCurrentFile",
+        "title": "Step Back Current File with WIMPS",
+        "category": "WIMPS",
+        "icon": "$(debug-step-back)"
+      },
+      {
+        "command": "wimps.runToCursor",
+        "title": "Run to Cursor with WIMPS",
+        "category": "WIMPS",
+        "icon": "$(debug-run)"
+      },
+      {
+        "command": "wimps.editMemoryWord",
+        "title": "Edit Memory Word",
+        "category": "WIMPS",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "wimps.editMemoryWordAtItem",
+        "title": "Edit Memory Word",
+        "category": "WIMPS",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "wimps.setRegisterValue",
+        "title": "Set Register Value",
+        "category": "WIMPS",
+        "icon": "$(symbol-variable)"
+      },
+      {
+        "command": "wimps.setRegisterValueAtItem",
+        "title": "Set Register Value",
+        "category": "WIMPS",
+        "icon": "$(symbol-variable)"
+      },
+      {
+        "command": "wimps.configureCache",
+        "title": "Configure Cache Analysis",
+        "category": "WIMPS",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "wimps.copyAssemblerListing",
+        "title": "Copy Assembler Listing",
+        "category": "WIMPS",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "wimps.copyMemoryDump",
+        "title": "Copy Memory Dump",
+        "category": "WIMPS",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "wimps.resetSimulator",
+        "title": "Reset WIMPS Simulator",
+        "category": "WIMPS",
+        "icon": {
+          "light": "resources/action-reset.svg",
+          "dark": "resources/action-reset.svg"
+        }
+      },
+      {
+        "command": "wimps.openOutput",
+        "title": "Open WIMPS Output",
+        "category": "WIMPS",
+        "icon": "$(output)"
+      },
+      {
+        "command": "wimps.selectArchitecture",
+        "title": "Select Assembly Architecture",
+        "category": "WIMPS",
+        "icon": "$(circuit-board)"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "mips"
+      },
+      {
+        "language": "riscv"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "wimps",
+        "label": "WIMPS",
+        "languages": [
+          "mips",
+          "riscv"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Assembly file to run.",
+                "default": "${file}"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "wimps",
+            "request": "launch",
+            "name": "Run WIMPS",
+            "program": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "WIMPS: Run current assembly file",
+            "body": {
+              "type": "wimps",
+              "request": "launch",
+              "name": "Run WIMPS",
+              "program": "${file}"
+            }
+          }
+        ]
+      }
+    ],
+    "languages": [
+      {
+        "id": "mips",
+        "aliases": [
+          "MIPS Assembly",
+          "mips"
+        ],
+        "extensions": [
+          ".asm",
+          ".s"
+        ]
+      },
+      {
+        "id": "riscv",
+        "aliases": [
+          "RISC-V Assembly",
+          "riscv",
+          "risc-v"
+        ],
+        "extensions": [
+          ".riscv",
+          ".rv",
+          ".rvasm"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mips",
+        "scopeName": "source.mips",
+        "path": "./syntaxes/mips.tmLanguage.json"
+      },
+      {
+        "language": "riscv",
+        "scopeName": "source.riscv",
+        "path": "./syntaxes/riscv.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "WIMPS Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/wimps-dark-color-theme.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "wimps-assembly-icons",
+        "label": "WIMPS Assembly Icons",
+        "path": "./themes/wimps-file-icon-theme.json"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "wimps.assembleCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "group": "navigation@91"
+        },
+        {
+          "command": "wimps.runCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "group": "navigation@92"
+        },
+        {
+          "command": "wimps.stepCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "group": "navigation@93"
+        },
+        {
+          "command": "wimps.stepBackCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "group": "navigation@94"
+        },
+        {
+          "command": "wimps.runToCursor",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "group": "navigation@95"
+        },
+        {
+          "command": "wimps.resetSimulator",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "group": "navigation@96"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "wimps.assembleCurrentFile",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@2"
+        },
+        {
+          "command": "wimps.runCurrentFile",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@3"
+        },
+        {
+          "command": "wimps.stepCurrentFile",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@4"
+        },
+        {
+          "command": "wimps.stepBackCurrentFile",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@5"
+        },
+        {
+          "command": "wimps.runToCursor",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@6"
+        },
+        {
+          "command": "wimps.editMemoryWord",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@7"
+        },
+        {
+          "command": "wimps.setRegisterValue",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@8"
+        },
+        {
+          "command": "wimps.resetSimulator",
+          "when": "wimps.activeEditorIsAssembly",
+          "group": "wimps@9"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "wimps.assembleCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.runCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.continueCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.stepCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.stepBackCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.runToCursor",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.editMemoryWord",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.editMemoryWordAtItem",
+          "when": "false"
+        },
+        {
+          "command": "wimps.setRegisterValue",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.setRegisterValueAtItem",
+          "when": "false"
+        },
+        {
+          "command": "wimps.configureCache",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.copyAssemblerListing",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.copyMemoryDump",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.resetSimulator",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.openOutput",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        },
+        {
+          "command": "wimps.selectArchitecture",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "wimps.setRegisterValueAtItem",
+          "when": "view == wimps.registers && viewItem == wimpsRegister && wimps.hasAssemblyFile",
+          "group": "inline@1"
+        },
+        {
+          "command": "wimps.editMemoryWordAtItem",
+          "when": "view == wimps.memory && viewItem == wimpsMemoryWord && wimps.hasAssemblyFile",
+          "group": "inline@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "wimps.copyMemoryDump",
+          "when": "view == wimps.memory && wimps.hasAssemblyFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "wimps.copyAssemblerListing",
+          "when": "view == wimps.program && wimps.hasAssemblyFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "wimps.configureCache",
+          "when": "view == wimps.analysis && wimps.hasAssemblyFile",
+          "group": "navigation@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "wimps.assembleCurrentFile",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && wimps.activeEditorIsAssembly"
+      },
+      {
+        "command": "wimps.stepCurrentFile",
+        "key": "f10",
+        "when": "editorTextFocus && wimps.activeEditorIsAssembly"
+      },
+      {
+        "command": "wimps.stepBackCurrentFile",
+        "key": "shift+f10",
+        "when": "editorTextFocus && wimps.activeEditorIsAssembly"
+      },
+      {
+        "command": "wimps.runToCursor",
+        "key": "ctrl+f10",
+        "mac": "cmd+f10",
+        "when": "editorTextFocus && wimps.activeEditorIsAssembly"
+      },
+      {
+        "command": "wimps.resetSimulator",
+        "key": "escape",
+        "when": "editorTextFocus && wimps.activeEditorIsAssembly"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "wimpsRegisters",
+          "title": "WIMPS Registers",
+          "icon": "resources/icon-registers.svg"
+        },
+        {
+          "id": "wimpsMemory",
+          "title": "WIMPS Memory",
+          "icon": "resources/icon-memory.svg"
+        },
+        {
+          "id": "wimpsBitmap",
+          "title": "WIMPS Bitmap",
+          "icon": "resources/icon-bitmap.svg"
+        },
+        {
+          "id": "wimpsProgram",
+          "title": "WIMPS Program",
+          "icon": "resources/icon-program.svg"
+        },
+        {
+          "id": "wimpsAnalysis",
+          "title": "WIMPS Analysis",
+          "icon": "resources/icon-analysis.svg"
+        }
+      ]
+    },
+    "views": {
+      "wimpsRegisters": [
+        {
+          "id": "wimps.registers",
+          "name": "Register State",
+          "contextualTitle": "WIMPS Registers",
+          "type": "webview",
+          "when": "wimps.hasAssemblyFile"
+        }
+      ],
+      "wimpsMemory": [
+        {
+          "id": "wimps.memory",
+          "name": "Data Memory",
+          "contextualTitle": "WIMPS Memory",
+          "type": "webview",
+          "when": "wimps.hasAssemblyFile"
+        }
+      ],
+      "wimpsBitmap": [
+        {
+          "id": "wimps.bitmap",
+          "name": "Bitmap Display",
+          "contextualTitle": "WIMPS Bitmap",
+          "type": "webview",
+          "when": "wimps.hasAssemblyFile"
+        }
+      ],
+      "wimpsProgram": [
+        {
+          "id": "wimps.program",
+          "name": "Program Listing",
+          "contextualTitle": "WIMPS Program",
+          "type": "webview",
+          "when": "wimps.hasAssemblyFile"
+        }
+      ],
+      "wimpsAnalysis": [
+        {
+          "id": "wimps.analysis",
+          "name": "Cache Analysis",
+          "contextualTitle": "WIMPS Analysis",
+          "type": "webview",
+          "when": "wimps.hasAssemblyFile"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "npm run check-types && npm run compile:desktop && npm run compile:web && npm run compile:web-tests",
+    "check-types": "tsc -p ./ --noEmit",
+    "compile:desktop": "esbuild src/extension.ts --bundle --format=cjs --platform=node --external:vscode --outfile=out/extension.js --sourcemap",
+    "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/extension-web.js --sourcemap",
+    "compile:web-tests": "esbuild test/web/extensionTests.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/test-web.js --sourcemap",
+    "test:smoke": "npm run compile && node scripts/smoke-extension.cjs",
+    "test:extension": "npm run compile && node test/runTest.cjs",
+    "test:extension-web": "npm run compile && node test/runWebTest.cjs",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "build": "npm run compile"
+  },
+  "dependencies": {
+    "@specy/mips": "^1.2.8",
+    "@specy/risc-v": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.92.0",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.28.1",
+    "mocha": "^11.7.6",
+    "typescript": "^5.7.0"
+  }
+}

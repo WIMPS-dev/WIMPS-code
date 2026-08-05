@@ -1,0 +1,102 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "RISC-V",
+	"scopeName": "source.riscv",
+	"patterns": [
+		{ "include": "#comments" },
+		{ "include": "#strings" },
+		{ "include": "#labels" },
+		{ "include": "#directives" },
+		{ "include": "#instructions" },
+		{ "include": "#registers" },
+		{ "include": "#numbers" }
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.number-sign.riscv",
+					"match": "#.*$"
+				},
+				{
+					"name": "comment.line.semicolon.riscv",
+					"match": ";.*$"
+				}
+			]
+		},
+		"directives": {
+			"patterns": [
+				{
+					"name": "keyword.control.directive.riscv",
+					"match": "(?i)(?<![\\w$])\\.(?:align|ascii|asciz|balign|bss|byte|comm|data|double|dword|end|equ|extern|file|float|global|globl|half|include|macro|option|org|p2align|section|set|space|string|text|type|word)(?![\\w$])"
+				}
+			]
+		},
+		"instructions": {
+			"patterns": [
+				{
+					"name": "keyword.mnemonic.instruction.riscv",
+					"match": "(?i)(?<![\\w.$])(?:add|addi|addiw|addw|and|andi|auipc|beq|beqz|bge|bgeu|bgez|bgt|bgtu|bgtz|ble|bleu|blez|blt|bltu|bltz|bne|bnez|call|csrr|csrrc|csrrci|csrrs|csrrsi|csrrw|csrrwi|div|divu|divuw|divw|ebreak|ecall|fadd\\.d|fadd\\.s|fcvt\\.d\\.s|fcvt\\.d\\.w|fcvt\\.d\\.wu|fcvt\\.s\\.d|fcvt\\.s\\.w|fcvt\\.s\\.wu|fcvt\\.w\\.d|fcvt\\.w\\.s|fcvt\\.wu\\.d|fcvt\\.wu\\.s|fdiv\\.d|fdiv\\.s|fld|fle\\.d|fle\\.s|flt\\.d|flt\\.s|flw|fmadd\\.d|fmadd\\.s|fmsub\\.d|fmsub\\.s|fmul\\.d|fmul\\.s|fmv\\.d|fmv\\.s|fmv\\.w\\.x|fmv\\.x\\.w|fnmadd\\.d|fnmadd\\.s|fnmsub\\.d|fnmsub\\.s|fsd|fsgnj\\.d|fsgnj\\.s|fsgnjn\\.d|fsgnjn\\.s|fsgnjx\\.d|fsgnjx\\.s|fsqrt\\.d|fsqrt\\.s|fsub\\.d|fsub\\.s|fsw|j|jal|jalr|jr|la|lb|lbu|ld|lh|lhu|li|lla|lui|lw|lwu|mv|mul|mulh|mulhsu|mulhu|mulw|neg|negw|nop|not|or|ori|rem|remu|remuw|remw|ret|sb|sd|seqz|sgtz|sh|sll|slli|slliw|sllw|slt|slti|sltiu|sltu|snez|sra|srai|sraiw|sraw|srl|srli|srliw|srlw|sub|subw|sw|tail|wfi|xor|xori)(?![\\w.$])"
+				}
+			]
+		},
+		"labels": {
+			"patterns": [
+				{
+					"name": "entity.name.label.riscv",
+					"match": "^\\s*([A-Za-z_$][\\w$\\.]*):"
+				}
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{
+					"name": "constant.numeric.integer.hexadecimal.riscv",
+					"match": "(?<![\\w$])-?0x[0-9A-Fa-f]+(?![\\w$])"
+				},
+				{
+					"name": "constant.numeric.integer.binary.riscv",
+					"match": "(?<![\\w$])-?0b[01]+(?![\\w$])"
+				},
+				{
+					"name": "constant.numeric.integer.decimal.riscv",
+					"match": "(?<![\\w$])-?\\d+(?![\\w$])"
+				}
+			]
+		},
+		"registers": {
+			"patterns": [
+				{
+					"name": "variable.other.register.riscv",
+					"match": "(?i)(?<![\\w$])(?:a[0-7]|f(?:[0-9]|[12][0-9]|3[01])|f(?:a[0-7]|s(?:[0-9]|1[01])|t(?:[0-9]|1[01]))|ft(?:[0-9]|1[01])|s(?:[0-9]|1[01])|t[0-6]|x(?:[0-9]|[12][0-9]|3[01])|zero|ra|sp|gp|tp|fp)(?![\\w$])"
+				}
+			]
+		},
+		"strings": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.riscv",
+					"begin": "\"",
+					"end": "\"",
+					"patterns": [
+						{
+							"name": "constant.character.escape.riscv",
+							"match": "\\\\(?:[\\\\\"'abfnrtv]|x[0-9A-Fa-f]{1,2}|[0-7]{1,3})"
+						}
+					]
+				},
+				{
+					"name": "string.quoted.single.riscv",
+					"begin": "'",
+					"end": "'",
+					"patterns": [
+						{
+							"name": "constant.character.escape.riscv",
+							"match": "\\\\(?:[\\\\\"'abfnrtv]|x[0-9A-Fa-f]{1,2}|[0-7]{1,3})"
+						}
+					]
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "MIPS Assembly",
+  "scopeName": "source.mips",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#labels" },
+    { "include": "#directives" },
+    { "include": "#registers" },
+    { "include": "#numbers" },
+    { "include": "#instructions" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.mips",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mips",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mips",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.mips",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mips",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "labels": {
+      "patterns": [
+        {
+          "name": "entity.name.label.mips",
+          "match": "\\b[A-Za-z_]\\w*:"
+        }
+      ]
+    },
+    "directives": {
+      "patterns": [
+        {
+          "name": "keyword.directive.mips",
+          "match": "\\.(?:data|text|globl|global|word|half|byte|ascii|asciiz|float|double|space|align|eqv|extern|kdata|ktext|macro|end_macro)\\b"
+        }
+      ]
+    },
+    "registers": {
+      "patterns": [
+        {
+          "name": "variable.other.register.mips",
+          "match": "\\$(?:zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|ra|[0-9]|[12][0-9]|3[01])\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.mips",
+          "match": "(?<![\\w$])-?0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.mips",
+          "match": "(?<![\\w$])-?0b[01]+\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.mips",
+          "match": "(?<![\\w$])-?\\d+\\b"
+        }
+      ]
+    },
+    "instructions": {
+      "patterns": [
+        {
+          "name": "keyword.instruction.mips",
+          "match": "(?i)(?<![\\w$])(?:add|addu|addi|addiu|sub|subu|mul|mulo|mulou|mult|multu|div|divu|rem|remu|mfhi|mflo|mthi|mtlo|neg|negu|abs|and|andi|or|ori|xor|xori|nor|not|sll|srl|sra|sllv|srlv|srav|rol|ror|slt|sltu|slti|sltiu|seq|sne|sgt|sgtu|sge|sgeu|sle|sleu|lw|sw|lh|lhu|sh|lb|lbu|sb|lui|la|li|beq|bne|beqz|bnez|bltz|bgtz|blez|bgez|bltzal|bgezal|blt|bgt|ble|bge|bltu|bgtu|bleu|bgeu|b|j|jal|jr|jalr|syscall|break|nop|move)\\b"
+        }
+      ]
+    }
+  }
+}

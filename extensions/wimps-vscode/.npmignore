@@ -1,0 +1,16 @@
+.vscode-test/
+.vscode-test-web/
+*.vsix
+*.tsbuildinfo
+*.log
+npm-debug.log*
+.DS_Store
+.env
+AGENTS.md
+.vscode/
+scripts/
+src/
+test/
+tsconfig.json
+out/test-web.js
+out/test-web.js.map

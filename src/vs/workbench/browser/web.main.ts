@@ -19,10 +19,10 @@ import { RemoteAgentService } from '../services/remote/browser/remoteAgentServic
 import { RemoteAuthorityResolverService } from '../../platform/remote/browser/remoteAuthorityResolverService.js';
 import { IRemoteAuthorityResolverService, RemoteConnectionType } from '../../platform/remote/common/remoteAuthorityResolver.js';
 import { IRemoteAgentService } from '../services/remote/common/remoteAgentService.js';
-import { IFileService } from '../../platform/files/common/files.js';
+import { FileType, IFileService } from '../../platform/files/common/files.js';
 import { FileService } from '../../platform/files/common/fileService.js';
 import { Schemas, connectionTokenCookieName } from '../../base/common/network.js';
-import { IAnyWorkspaceIdentifier, IWorkspaceContextService, UNKNOWN_EMPTY_WINDOW_WORKSPACE, isTemporaryWorkspace, isWorkspaceIdentifier } from '../../platform/workspace/common/workspace.js';
+import { IAnyWorkspaceIdentifier, IWorkspaceContextService, UNKNOWN_EMPTY_WINDOW_WORKSPACE, isSingleFolderWorkspaceIdentifier, isTemporaryWorkspace, isWorkspaceIdentifier } from '../../platform/workspace/common/workspace.js';
 import { IWorkbenchConfigurationService } from '../services/configuration/common/configuration.js';
 import { onUnexpectedError, ErrorNoTelemetry } from '../../base/common/errors.js';
 import { setFullscreen } from '../../base/browser/browser.js';
@@ -318,6 +318,7 @@ export class BrowserMain extends Disposable {
 		// Register File System Providers depending on IndexedDB support
 		// Register them early because they are needed for the profiles initialization
 		await this.registerIndexedDBFileSystemProviders(environmentService, fileService, logService, loggerService, logsPath);
+		await this.ensureBrowserWorkspaceFolder(workspace, fileService);
 
 
 		const connectionToken = environmentService.options.connectionToken || getCookieValue(connectionTokenCookieName);
@@ -640,6 +641,41 @@ export class BrowserMain extends Disposable {
 
 			return workspaceService;
 		}
+	}
+
+	private async ensureBrowserWorkspaceFolder(workspace: IAnyWorkspaceIdentifier, fileService: FileService): Promise<void> {
+		if (!workspace || !isSingleFolderWorkspaceIdentifier(workspace) || (workspace.uri.scheme !== Schemas.vscodeUserData && workspace.uri.scheme !== Schemas.tmp)) {
+			return;
+		}
+
+		try {
+			const stat = await fileService.stat(workspace.uri);
+			if (!(stat.type & FileType.Directory)) {
+				await fileService.del(workspace.uri);
+				await fileService.createFolder(workspace.uri);
+			}
+		} catch {
+			await fileService.createFolder(workspace.uri);
+		}
+
+		const folderEntries = await fileService.resolve(workspace.uri).then(stat => stat.children ?? []).catch(() => []);
+		if (folderEntries.length > 0) {
+			return;
+		}
+
+		const starterFile = joinPath(workspace.uri, 'main.asm');
+		await fileService.createFile(starterFile, VSBuffer.fromString([
+			'# WIMPS browser workspace',
+			'# This file is saved in this browser.',
+			'',
+			'.data',
+			'',
+			'.text',
+			'main:',
+			'\tli $v0, 10',
+			'\tsyscall',
+			''
+		].join('\n')), { overwrite: false }).catch(() => undefined);
 	}
 
 	private async getCurrentProfile(workspace: IAnyWorkspaceIdentifier, userDataProfilesService: BrowserUserDataProfilesService, environmentService: BrowserWorkbenchEnvironmentService): Promise<IUserDataProfile> {

@@ -1,0 +1,67 @@
+{
+  "fonts": [
+    {
+      "id": "seti",
+      "src": [
+        {
+          "path": "../resources/seti.woff",
+          "format": "woff"
+        }
+      ],
+      "weight": "normal",
+      "style": "normal",
+      "size": "150%"
+    }
+  ],
+  "iconDefinitions": {
+    "_file": {
+      "iconPath": "../resources/file.svg"
+    },
+    "_assembly": {
+      "iconPath": "../resources/file-assembly.svg"
+    },
+    "_assembly_light": {
+      "iconPath": "../resources/file-assembly-light.svg"
+    }
+  },
+  "file": "_file",
+  "fileExtensions": {
+    "asm": "_assembly",
+    "s": "_assembly",
+    "riscv": "_assembly",
+    "rv": "_assembly",
+    "rvasm": "_assembly"
+  },
+  "languageIds": {
+    "mips": "_assembly",
+    "riscv": "_assembly"
+  },
+  "light": {
+    "file": "_file",
+    "fileExtensions": {
+      "asm": "_assembly_light",
+      "s": "_assembly_light",
+      "riscv": "_assembly_light",
+      "rv": "_assembly_light",
+      "rvasm": "_assembly_light"
+    },
+    "languageIds": {
+      "mips": "_assembly_light",
+      "riscv": "_assembly_light"
+    }
+  },
+  "highContrast": {
+    "file": "_file",
+    "fileExtensions": {
+      "asm": "_assembly",
+      "s": "_assembly",
+      "riscv": "_assembly",
+      "rv": "_assembly",
+      "rvasm": "_assembly"
+    },
+    "languageIds": {
+      "mips": "_assembly",
+      "riscv": "_assembly"
+    }
+  }
+}

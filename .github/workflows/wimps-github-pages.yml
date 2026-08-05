@@ -1,0 +1,53 @@
+name: Deploy WIMPS GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wimps-github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      WIMPS_GITHUB_PAGES_CNAME: code.wimps.dev
+
+    steps:
+      - name: Checkout WIMPS Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Build GitHub Pages Artifact
+        shell: bash
+        run: |
+          npm run install:wimps
+          npm run package:wimps-github-pages
+
+      - name: Publish gh-pages
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add --detach ../gh-pages origin/gh-pages
+          rsync -a --delete --exclude .git dist/github-pages/ ../gh-pages/
+          git -C ../gh-pages add -A
+          if git -C ../gh-pages diff --cached --quiet; then
+            echo "GitHub Pages artifact is already up to date."
+            exit 0
+          fi
+          git -C ../gh-pages commit -m "Deploy Github Pages"
+          git -C ../gh-pages push origin HEAD:gh-pages --force-with-lease
