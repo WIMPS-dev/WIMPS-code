@@ -83008,7 +83008,7 @@ var NativeAssemblySimulator = class {
       publishSimState(this.toState("waiting"));
       return false;
     }
-    this.pendingInputs.push(value);
+    this.pendingInputs.push({ kind, value });
     this.waitingForInput = null;
     return true;
   }
@@ -83025,14 +83025,19 @@ var NativeAssemblySimulator = class {
     }
   }
   takeInput(fallback = "") {
-    const value = this.pendingInputs.shift();
-    if (value === void 0) {
+    const input = this.pendingInputs.shift();
+    if (input === void 0) {
       this.waitingForInput = this.waitingForInput ?? "string";
       return fallback;
     }
-    this.output += `${value}
+    this.appendInputEcho(input);
+    return input.value;
+  }
+  appendInputEcho(input) {
+    const label = input.kind === "int" ? "integer" : input.kind === "float" ? "float" : input.kind === "double" ? "double" : input.kind === "char" ? "character" : "string";
+    const value = input.kind === "char" && input.value === "\n" ? "\\n" : input.value;
+    this.output += `${this.output && !this.output.endsWith("\n") ? "\n" : ""}[stdin ${label}] ${value}
 `;
-    return value;
   }
   currentSourceLine() {
     try {
@@ -83269,6 +83274,7 @@ function yieldToExtensionHost() {
 }
 async function requestProgramInput(kind, fileName) {
   const label = kind === "int" ? "integer" : kind === "float" ? "float" : kind === "double" ? "double" : kind === "char" ? "character" : "string";
+  outputChannel.show(true);
   return vscode.window.showInputBox({
     title: `WIMPS input: ${fileName}`,
     prompt: `Enter ${label} for read ${kind} syscall.`,
