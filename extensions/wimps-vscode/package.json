@@ -252,6 +252,11 @@
         "label": "WIMPS Dark",
         "uiTheme": "vs-dark",
         "path": "./themes/wimps-dark-color-theme.json"
+      },
+      {
+        "label": "WIMPS Light",
+        "uiTheme": "vs",
+        "path": "./themes/wimps-light-color-theme.json"
       }
     ],
     "iconThemes": [

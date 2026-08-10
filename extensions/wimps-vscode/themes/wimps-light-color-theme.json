@@ -1,0 +1,152 @@
+{
+  "$schema": "vscode://schemas/color-theme",
+  "name": "WIMPS Light",
+  "type": "light",
+  "colors": {
+    "editor.background": "#ffffff",
+    "editor.foreground": "#0f172a",
+    "sideBar.background": "#f8fafc",
+    "sideBar.foreground": "#0f172a",
+    "sideBarTitle.foreground": "#0f172a",
+    "sideBarSectionHeader.background": "#eef2f7",
+    "sideBarSectionHeader.border": "#cbd5e1",
+    "activityBar.background": "#e9eef5",
+    "activityBar.foreground": "#1d4ed8",
+    "activityBar.inactiveForeground": "#475569",
+    "activityBarBadge.background": "#2563eb",
+    "activityBarBadge.foreground": "#ffffff",
+    "statusBar.background": "#2563eb",
+    "statusBar.foreground": "#ffffff",
+    "statusBar.noFolderBackground": "#2563eb",
+    "statusBar.debuggingBackground": "#1d4ed8",
+    "statusBar.debuggingForeground": "#ffffff",
+    "titleBar.activeBackground": "#e2e8f0",
+    "titleBar.activeForeground": "#0f172a",
+    "titleBar.inactiveBackground": "#e2e8f0",
+    "titleBar.inactiveForeground": "#475569",
+    "commandCenter.background": "#f8fafc",
+    "commandCenter.foreground": "#0f172a",
+    "commandCenter.border": "#cbd5e1",
+    "editorGroupHeader.tabsBackground": "#eef2f7",
+    "editorGroupHeader.tabsBorder": "#cbd5e1",
+    "editorGroupHeader.noTabsBackground": "#f1f5f9",
+    "editorGroup.border": "#cbd5e1",
+    "tab.activeBackground": "#ffffff",
+    "tab.inactiveBackground": "#eef2f7",
+    "tab.unfocusedActiveBackground": "#ffffff",
+    "tab.unfocusedInactiveBackground": "#eef2f7",
+    "tab.hoverBackground": "#e2e8f0",
+    "tab.unfocusedHoverBackground": "#e2e8f0",
+    "tab.activeForeground": "#0f172a",
+    "tab.inactiveForeground": "#475569",
+    "tab.unfocusedActiveForeground": "#0f172a",
+    "tab.unfocusedInactiveForeground": "#64748b",
+    "tab.activeBorderTop": "#2563eb",
+    "tab.activeBorder": "#ffffff",
+    "tab.border": "#cbd5e1",
+    "panel.background": "#ffffff",
+    "panel.border": "#cbd5e1",
+    "terminal.background": "#ffffff",
+    "terminal.foreground": "#334155",
+    "input.background": "#f8fafc",
+    "input.foreground": "#0f172a",
+    "input.border": "#cbd5e1",
+    "button.background": "#ffffff",
+    "button.foreground": "#0f172a",
+    "button.border": "#cbd5e1",
+    "button.hoverBackground": "#e2e8f0",
+    "list.activeSelectionBackground": "#2563eb14",
+    "list.activeSelectionForeground": "#1d4ed8",
+    "list.inactiveSelectionBackground": "#e2e8f0",
+    "list.hoverBackground": "#e2e8f0",
+    "focusBorder": "#2563eb",
+    "editorLineNumber.foreground": "#64748b",
+    "editorCursor.foreground": "#0f172a",
+    "editor.selectionBackground": "#bfdbfe",
+    "editor.lineHighlightBackground": "#f8fafc",
+    "editorGutter.background": "#ffffff",
+    "descriptionForeground": "#475569",
+    "foreground": "#0f172a",
+    "widget.border": "#cbd5e1",
+    "dropdown.background": "#ffffff",
+    "dropdown.foreground": "#0f172a",
+    "dropdown.border": "#cbd5e1",
+    "scrollbarSlider.background": "#94a3b866",
+    "scrollbarSlider.hoverBackground": "#64748b66",
+    "scrollbarSlider.activeBackground": "#64748b99"
+  },
+  "tokenColors": [
+    {
+      "scope": "keyword.instruction.mips",
+      "settings": {
+        "foreground": "#2563eb"
+      }
+    },
+    {
+      "scope": "keyword.mnemonic.instruction.riscv",
+      "settings": {
+        "foreground": "#2563eb"
+      }
+    },
+    {
+      "scope": "variable.other.register.mips",
+      "settings": {
+        "foreground": "#f97316"
+      }
+    },
+    {
+      "scope": "variable.other.register.riscv",
+      "settings": {
+        "foreground": "#f97316"
+      }
+    },
+    {
+      "scope": "keyword.directive.mips",
+      "settings": {
+        "foreground": "#ec4899"
+      }
+    },
+    {
+      "scope": "keyword.control.directive.riscv",
+      "settings": {
+        "foreground": "#ec4899"
+      }
+    },
+    {
+      "scope": "comment.line.number-sign.mips",
+      "settings": {
+        "foreground": "#16a34a"
+      }
+    },
+    {
+      "scope": [
+        "comment.line.number-sign.riscv",
+        "comment.line.semicolon.riscv"
+      ],
+      "settings": {
+        "foreground": "#16a34a"
+      }
+    },
+    {
+      "scope": "constant.numeric",
+      "settings": {
+        "foreground": "#0f172a"
+      }
+    },
+    {
+      "scope": [
+        "entity.name.label.mips",
+        "entity.name.label.riscv"
+      ],
+      "settings": {
+        "foreground": "#0f172a"
+      }
+    },
+    {
+      "scope": "string.quoted",
+      "settings": {
+        "foreground": "#0f172a"
+      }
+    }
+  ]
+}
