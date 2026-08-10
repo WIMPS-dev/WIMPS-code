@@ -69,7 +69,7 @@
         "title": "Continue Current File with WIMPS",
         "category": "WIMPS",
         "icon": {
-          "light": "resources/action-continue.svg",
+          "light": "resources/action-continue-light.svg",
           "dark": "resources/action-continue.svg"
         }
       },
@@ -78,7 +78,7 @@
         "title": "Step Current File with WIMPS",
         "category": "WIMPS",
         "icon": {
-          "light": "resources/action-step.svg",
+          "light": "resources/action-step-light.svg",
           "dark": "resources/action-step.svg"
         }
       },
@@ -141,7 +141,7 @@
         "title": "Reset WIMPS Simulator",
         "category": "WIMPS",
         "icon": {
-          "light": "resources/action-reset.svg",
+          "light": "resources/action-reset-light.svg",
           "dark": "resources/action-reset.svg"
         }
       },
