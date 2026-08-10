@@ -82938,6 +82938,7 @@ var NativeAssemblySimulator = class {
   memoryAccesses = [];
   outputSnapshots = [];
   statsSnapshots = [];
+  syscallAddresses = /* @__PURE__ */ new Set();
   get currentUri() {
     return this.uri;
   }
@@ -82966,6 +82967,7 @@ var NativeAssemblySimulator = class {
     }
     this.instance.initialize(true);
     this.registerHandlers();
+    this.cacheRuntimeProgramMetadata();
     this.assembled = true;
     if (publish) publishSimState(this.toState("assembled"));
     return { ok: true };
@@ -82995,6 +82997,9 @@ var NativeAssemblySimulator = class {
   }
   async runUntilBreak(breakpointLines, limit = RUN_LIMIT) {
     if (!this.assembled || !this.instance) return "not-assembled";
+    if (breakpointLines.size === 0) {
+      return this.runFastUntilTerminated(limit);
+    }
     this.clearUndoHistory();
     for (let i = 0; i < limit && !this.instance.terminated; i++) {
       if (breakpointLines.size > 0 && this.isAtBreakpoint(breakpointLines)) {
@@ -83037,6 +83042,29 @@ var NativeAssemblySimulator = class {
     this.outputSnapshots = [];
     this.statsSnapshots = [];
     this.finishedMessageEmitted = false;
+    this.syscallAddresses = /* @__PURE__ */ new Set();
+  }
+  async runFastUntilTerminated(limit) {
+    if (!this.instance) return "not-assembled";
+    this.clearUndoHistory();
+    let executed = 0;
+    for (; executed < limit && !this.instance.terminated; executed++) {
+      if (this.syscallAddresses.has(this.currentProgramCounter()) && !await this.prepareInputAtCurrentSyscall()) {
+        return "waiting";
+      }
+      this.instance.step();
+      if (executed > 0 && executed % RUN_YIELD_INTERVAL === 0) await yieldToExtensionHost();
+    }
+    this.totalInstructions += executed;
+    const done = this.instance.terminated;
+    if (done) {
+      this.appendProgramFinished();
+    } else {
+      this.output += `${this.output && !this.output.endsWith("\n") ? "\n" : ""}=== WIMPS stopped after ${limit} instructions ===
+`;
+    }
+    publishSimState(this.toState(done ? "terminated" : "limit"));
+    return done ? "terminated" : "limit";
   }
   async runUntilSourceLine(targetLine, limit = RUN_LIMIT) {
     if (!this.assembled || !this.instance) return "not-assembled";
@@ -83200,6 +83228,25 @@ var NativeAssemblySimulator = class {
       return null;
     }
   }
+  prepareInputAtCurrentSyscall() {
+    const service = this.architecture === "riscv" ? this.getRegisterValue("a7") : this.getRegisterValue("$v0");
+    const kind = readSyscallKind(this.architecture, service);
+    return this.prepareInputKind(kind);
+  }
+  prepareInputKind(kind) {
+    if (!kind || this.pendingInputs.length > 0) return Promise.resolve(true);
+    this.waitingForInput = kind;
+    publishSimState(this.toState("waiting"));
+    return requestProgramInput(kind, this.fileName).then((value) => {
+      if (value === void 0) {
+        publishSimState(this.toState("waiting"));
+        return false;
+      }
+      this.pendingInputs.push({ kind, value });
+      this.waitingForInput = null;
+      return true;
+    });
+  }
   takeInput(fallback = "") {
     const input = this.pendingInputs.shift();
     if (input === void 0) {
@@ -83222,6 +83269,13 @@ var NativeAssemblySimulator = class {
       return stmt?.sourceLine ?? null;
     } catch {
       return null;
+    }
+  }
+  currentProgramCounter() {
+    try {
+      return (this.instance?.programCounter ?? 0) >>> 0;
+    } catch {
+      return 0;
     }
   }
   isAtBreakpoint(breakpointLines) {
@@ -83343,6 +83397,17 @@ var NativeAssemblySimulator = class {
       });
     } catch {
       return [];
+    }
+  }
+  cacheRuntimeProgramMetadata() {
+    this.syscallAddresses = /* @__PURE__ */ new Set();
+    for (const row of this.getProgramRows()) {
+      const mnemonic = row.assembly.trimStart().split(/[\s,\t(]/)[0]?.toLowerCase();
+      if (this.architecture === "mips" && mnemonic === "syscall") {
+        this.syscallAddresses.add(parseInt(row.address.slice(2), 16) >>> 0);
+      } else if (this.architecture === "riscv" && mnemonic === "ecall") {
+        this.syscallAddresses.add(parseInt(row.address.slice(2), 16) >>> 0);
+      }
     }
   }
   getSymbols() {
