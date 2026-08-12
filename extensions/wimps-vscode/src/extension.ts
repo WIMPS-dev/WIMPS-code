@@ -147,6 +147,15 @@ const X86_REGISTER_NAMES = [
 ] as const;
 const X86_DATA_START_ADDRESS = 0x00400000;
 const X86_WAITING_FOR_INPUT_STATUS = 2;
+const X86_SUPPRESSED_OUTPUT_LINES: readonly string[] = [
+  'Initializing blink emulator...',
+  'blink ready!',
+] as const;
+const X86_SUPPRESSED_OUTPUT_PREFIXES: readonly string[] = [
+  '$ /assembler',
+  '$ /linker',
+  '$ /program',
+] as const;
 
 type X86RegisterName = (typeof X86_REGISTER_NAMES)[number];
 type X86Emulator = {
@@ -499,6 +508,8 @@ class NativeAssemblySimulator {
   private documentVersion = -1;
   private fileName = 'No file';
   private output = '';
+  private x86OutputLineBuffer = '';
+  private x86OutputPassthroughLine = false;
   private assembled = false;
   private finishedMessageEmitted = false;
   private pendingInputs: PendingInput[] = [];
@@ -539,7 +550,7 @@ class NativeAssemblySimulator {
         (this.instance as X86Emulator).dispose();
       }
     } catch {}
-    this.instance = await createSimulatorInstance(architecture, this.source, value => { this.output += value; });
+    this.instance = await createSimulatorInstance(architecture, this.source, value => this.appendSimulatorOutput(value));
     const result = await this.compileCurrentSource();
 
     if (result.hasErrors) {
@@ -625,6 +636,8 @@ class NativeAssemblySimulator {
 
   private resetRuntimeState() {
     this.output = '';
+    this.x86OutputLineBuffer = '';
+    this.x86OutputPassthroughLine = false;
     this.pendingInputs = [];
     this.waitingForInput = null;
     this.stats = emptyStats();
@@ -1034,8 +1047,73 @@ class NativeAssemblySimulator {
 
   private appendProgramFinished() {
     if (this.finishedMessageEmitted) return;
+    if (this.architecture === 'x86') {
+      this.flushX86OutputLineBuffer();
+      this.finishedMessageEmitted = true;
+      return;
+    }
     this.output += `${this.output && !this.output.endsWith('\n') ? '\n' : ''}=== Program finished ===\n`;
     this.finishedMessageEmitted = true;
+  }
+
+  private appendSimulatorOutput(value: string) {
+    if (this.architecture !== 'x86') {
+      this.output += value;
+      return;
+    }
+
+    for (const char of value) {
+      this.appendX86OutputChar(char);
+    }
+  }
+
+  private appendX86OutputChar(char: string) {
+    if (this.x86OutputPassthroughLine) {
+      this.output += char;
+      if (char === '\n') this.x86OutputPassthroughLine = false;
+      return;
+    }
+
+    this.x86OutputLineBuffer += char;
+    if (char === '\n') {
+      this.flushCompletedX86OutputLine();
+      return;
+    }
+
+    if (!this.isPotentialSuppressedX86OutputLine(this.x86OutputLineBuffer)) {
+      this.output += this.x86OutputLineBuffer;
+      this.x86OutputLineBuffer = '';
+      this.x86OutputPassthroughLine = true;
+    }
+  }
+
+  private flushCompletedX86OutputLine() {
+    const line = this.x86OutputLineBuffer.replace(/\r?\n$/, '');
+    if (!this.isSuppressedX86OutputLine(line)) this.output += this.x86OutputLineBuffer;
+    this.x86OutputLineBuffer = '';
+    this.x86OutputPassthroughLine = false;
+  }
+
+  private flushX86OutputLineBuffer() {
+    if (this.x86OutputPassthroughLine) {
+      this.output += this.x86OutputLineBuffer;
+    } else if (this.x86OutputLineBuffer && !this.isSuppressedX86OutputLine(this.x86OutputLineBuffer)) {
+      this.output += this.x86OutputLineBuffer;
+    }
+    this.x86OutputLineBuffer = '';
+    this.x86OutputPassthroughLine = false;
+  }
+
+  private isSuppressedX86OutputLine(line: string) {
+    return line === ''
+      || X86_SUPPRESSED_OUTPUT_LINES.includes(line)
+      || X86_SUPPRESSED_OUTPUT_PREFIXES.some(prefix => line.startsWith(prefix));
+  }
+
+  private isPotentialSuppressedX86OutputLine(line: string) {
+    return line === ''
+      || X86_SUPPRESSED_OUTPUT_LINES.some(suppressed => suppressed.startsWith(line))
+      || X86_SUPPRESSED_OUTPUT_PREFIXES.some(prefix => prefix.startsWith(line) || line.startsWith(prefix));
   }
 
   private currentInstruction(): { address: number; sourceLine: number | null; assemblyStatement: string } | null {
