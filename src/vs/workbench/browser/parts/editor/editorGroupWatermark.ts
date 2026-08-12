@@ -16,6 +16,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import product from '../../../../platform/product/common/product.js';
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { defaultKeybindingLabelStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
@@ -45,7 +46,7 @@ const startDebugging: WatermarkEntry = { text: localize('watermark.startDebuggin
 const openSettings: WatermarkEntry = { text: localize('watermark.openSettings', "Open Settings"), id: 'workbench.action.openSettings' };
 
 const baseEntries: WatermarkEntry[] = [
-	openChat,
+	...(product.wimpsWorkbench?.pruneUnwiredSurfaces ? [] : [openChat]),
 	showCommands,
 ];
 
@@ -62,9 +63,7 @@ const workspaceEntries: WatermarkEntry[] = [
 
 const otherEntries: WatermarkEntry[] = [
 	gotoFile,
-	findInFiles,
-	startDebugging,
-	toggleTerminal,
+	...(product.wimpsWorkbench?.pruneUnwiredSurfaces ? [] : [findInFiles, startDebugging, toggleTerminal]),
 	openSettings,
 ];
 

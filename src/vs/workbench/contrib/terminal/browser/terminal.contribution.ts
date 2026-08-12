@@ -15,6 +15,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ITerminalLogService } from '../../../../platform/terminal/common/terminal.js';
 import { TerminalLogService } from '../../../../platform/terminal/common/terminalLogService.js';
 import { registerTerminalPlatformConfiguration } from '../../../../platform/terminal/common/terminalPlatformConfiguration.js';
+import product from '../../../../platform/product/common/product.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
@@ -103,34 +104,36 @@ Registry.as<IDragAndDropContributionRegistry>(DragAndDropExtensions.DragAndDropC
 });
 
 // Register views
-const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
-	id: TERMINAL_VIEW_ID,
-	title: nls.localize2('terminal', "Terminal"),
-	icon: terminalViewIcon,
-	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [TERMINAL_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
-	storageId: TERMINAL_VIEW_ID,
-	hideIfEmpty: true,
-	order: 3,
-	windowEnablement: WindowEnablement.Both
-}, ViewContainerLocation.Panel, { doNotRegisterOpenCommand: true, isDefault: true });
-Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
-	id: TERMINAL_VIEW_ID,
-	name: nls.localize2('terminal', "Terminal"),
-	containerIcon: terminalViewIcon,
-	canToggleVisibility: true,
-	canMoveView: true,
-	ctorDescriptor: new SyncDescriptor(TerminalViewPane),
-	windowEnablement: WindowEnablement.Both,
-	openCommandActionDescriptor: {
-		id: TerminalCommandId.Toggle,
-		mnemonicTitle: nls.localize({ key: 'miToggleIntegratedTerminal', comment: ['&& denotes a mnemonic'] }, "&&Terminal"),
-		keybindings: {
-			primary: KeyMod.CtrlCmd | KeyCode.Backquote,
-			mac: { primary: KeyMod.WinCtrl | KeyCode.Backquote }
-		},
-		order: 3
-	}
-}], VIEW_CONTAINER);
+if (!product.wimpsWorkbench?.pruneUnwiredSurfaces) {
+	const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
+		id: TERMINAL_VIEW_ID,
+		title: nls.localize2('terminal', "Terminal"),
+		icon: terminalViewIcon,
+		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [TERMINAL_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
+		storageId: TERMINAL_VIEW_ID,
+		hideIfEmpty: true,
+		order: 3,
+		windowEnablement: WindowEnablement.Both
+	}, ViewContainerLocation.Panel, { doNotRegisterOpenCommand: true, isDefault: true });
+	Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
+		id: TERMINAL_VIEW_ID,
+		name: nls.localize2('terminal', "Terminal"),
+		containerIcon: terminalViewIcon,
+		canToggleVisibility: true,
+		canMoveView: true,
+		ctorDescriptor: new SyncDescriptor(TerminalViewPane),
+		windowEnablement: WindowEnablement.Both,
+		openCommandActionDescriptor: {
+			id: TerminalCommandId.Toggle,
+			mnemonicTitle: nls.localize({ key: 'miToggleIntegratedTerminal', comment: ['&& denotes a mnemonic'] }, "&&Terminal"),
+			keybindings: {
+				primary: KeyMod.CtrlCmd | KeyCode.Backquote,
+				mac: { primary: KeyMod.WinCtrl | KeyCode.Backquote }
+			},
+			order: 3
+		}
+	}], VIEW_CONTAINER);
+}
 
 registerTerminalActions();
 

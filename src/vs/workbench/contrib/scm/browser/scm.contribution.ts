@@ -53,6 +53,7 @@ ModesRegistry.registerLanguage({
 
 const sourceControlViewIcon = registerIcon('source-control-view-icon', Codicon.sourceControl, localize('sourceControlViewIcon', 'View icon of the Source Control view.'));
 
+if (!product.wimpsWorkbench?.pruneUnwiredSurfaces) {
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: VIEWLET_ID,
 	title: localize2('source control', 'Source Control'),
@@ -143,6 +144,7 @@ viewsRegistry.registerViews([{
 	),
 	containerIcon: sourceControlViewIcon
 }], viewContainer);
+}
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(SCMActiveRepositoryController, LifecyclePhase.Restored);

@@ -7,6 +7,7 @@ import { constants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = path.resolve(repoRoot, process.env.WIMPS_VSCODE_WEB_SOURCE ?? '../vscode-web');
@@ -16,9 +17,150 @@ const callbackRoute = process.env.WIMPS_CALLBACK_ROUTE ?? '/callback';
 const assetBaseUrl = process.env.WIMPS_WEB_BASE_URL ?? '';
 const workspaceFolderPath = process.env.WIMPS_WORKSPACE_FOLDER_PATH ?? '/WIMPS';
 const wimpsLogoDataUri = 'data:image/svg+xml,%3Csvg width%3D%2232%22 height%3D%2232%22 viewBox%3D%220 0 32 32%22 xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Crect width%3D%2232%22 height%3D%2232%22 rx%3D%227%22 fill%3D%22%230f172a%22/%3E%3Crect x%3D%229%22 y%3D%229%22 width%3D%2214%22 height%3D%2214%22 rx%3D%222%22 fill%3D%22%232563eb%22/%3E%3Crect x%3D%224%22 y%3D%2211%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%224%22 y%3D%2218%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2223%22 y%3D%2211%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2223%22 y%3D%2218%22 width%3D%225%22 height%3D%223%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2211%22 y%3D%224%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2218%22 y%3D%224%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2211%22 y%3D%2223%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2218%22 y%3D%2223%22 width%3D%223%22 height%3D%225%22 rx%3D%221%22 fill%3D%22%2360a5fa%22/%3E%3Crect x%3D%2213%22 y%3D%2213%22 width%3D%226%22 height%3D%226%22 rx%3D%221%22 fill%3D%22white%22 opacity%3D%220.92%22/%3E%3C/svg%3E';
+const wimpsLogoSvg = decodeURIComponent(wimpsLogoDataUri.replace(/^data:image\/svg\+xml,/, ''));
+
+const pngCrcTable = new Uint32Array(256);
+for (let n = 0; n < 256; n++) {
+	let c = n;
+	for (let k = 0; k < 8; k++) {
+		c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+	}
+	pngCrcTable[n] = c >>> 0;
+}
 
 function asHtmlAttributeJson(value) {
 	return JSON.stringify(value).replace(/"/g, '&quot;');
+}
+
+function pngCrc32(buffer) {
+	let c = 0xffffffff;
+	for (const byte of buffer) {
+		c = pngCrcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+	}
+	return (c ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+	const typeBuffer = Buffer.from(type);
+	const chunk = Buffer.alloc(12 + data.length);
+	chunk.writeUInt32BE(data.length, 0);
+	typeBuffer.copy(chunk, 4);
+	data.copy(chunk, 8);
+	chunk.writeUInt32BE(pngCrc32(Buffer.concat([typeBuffer, data])), 8 + data.length);
+	return chunk;
+}
+
+function encodePng(width, height, rgba) {
+	const raw = Buffer.alloc((width * 4 + 1) * height);
+	for (let y = 0; y < height; y++) {
+		const sourceStart = y * width * 4;
+		const targetStart = y * (width * 4 + 1) + 1;
+		rgba.copy(raw, targetStart, sourceStart, sourceStart + width * 4);
+	}
+
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(width, 0);
+	header.writeUInt32BE(height, 4);
+	header[8] = 8;
+	header[9] = 6;
+
+	return Buffer.concat([
+		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+		pngChunk('IHDR', header),
+		pngChunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
+		pngChunk('IEND', Buffer.alloc(0))
+	]);
+}
+
+function color(hex, alpha = 1) {
+	const value = hex.replace('#', '');
+	return [
+		parseInt(value.slice(0, 2), 16),
+		parseInt(value.slice(2, 4), 16),
+		parseInt(value.slice(4, 6), 16),
+		Math.round(alpha * 255),
+	];
+}
+
+function insideRoundedRect(px, py, rect) {
+	const x2 = rect.x + rect.width;
+	const y2 = rect.y + rect.height;
+	if (px < rect.x || px >= x2 || py < rect.y || py >= y2) {
+		return false;
+	}
+	const r = Math.min(rect.radius, rect.width / 2, rect.height / 2);
+	if (!r) {
+		return true;
+	}
+	const cx = Math.max(rect.x + r, Math.min(px, x2 - r));
+	const cy = Math.max(rect.y + r, Math.min(py, y2 - r));
+	const dx = px - cx;
+	const dy = py - cy;
+	return dx * dx + dy * dy <= r * r;
+}
+
+function drawRoundedRect(rgba, size, rect, fill) {
+	for (let y = 0; y < size; y++) {
+		for (let x = 0; x < size; x++) {
+			const px = (x + 0.5) * 32 / size;
+			const py = (y + 0.5) * 32 / size;
+			if (!insideRoundedRect(px, py, rect)) {
+				continue;
+			}
+			const offset = (y * size + x) * 4;
+			const alpha = fill[3] / 255;
+			rgba[offset] = Math.round(fill[0] * alpha + rgba[offset] * (1 - alpha));
+			rgba[offset + 1] = Math.round(fill[1] * alpha + rgba[offset + 1] * (1 - alpha));
+			rgba[offset + 2] = Math.round(fill[2] * alpha + rgba[offset + 2] * (1 - alpha));
+			rgba[offset + 3] = 255;
+		}
+	}
+}
+
+function renderWimpsLogoPng(size) {
+	const rgba = Buffer.alloc(size * size * 4);
+	const shapes = [
+		{ x: 0, y: 0, width: 32, height: 32, radius: 7, fill: color('#0f172a') },
+		{ x: 9, y: 9, width: 14, height: 14, radius: 2, fill: color('#2563eb') },
+		{ x: 4, y: 11, width: 5, height: 3, radius: 1, fill: color('#60a5fa') },
+		{ x: 4, y: 18, width: 5, height: 3, radius: 1, fill: color('#60a5fa') },
+		{ x: 23, y: 11, width: 5, height: 3, radius: 1, fill: color('#60a5fa') },
+		{ x: 23, y: 18, width: 5, height: 3, radius: 1, fill: color('#60a5fa') },
+		{ x: 11, y: 4, width: 3, height: 5, radius: 1, fill: color('#60a5fa') },
+		{ x: 18, y: 4, width: 3, height: 5, radius: 1, fill: color('#60a5fa') },
+		{ x: 11, y: 23, width: 3, height: 5, radius: 1, fill: color('#60a5fa') },
+		{ x: 18, y: 23, width: 3, height: 5, radius: 1, fill: color('#60a5fa') },
+		{ x: 13, y: 13, width: 6, height: 6, radius: 1, fill: color('#ffffff', 0.92) },
+	];
+	for (const shape of shapes) {
+		drawRoundedRect(rgba, size, shape, shape.fill);
+	}
+	return encodePng(size, size, rgba);
+}
+
+function encodeIco(pngEntries) {
+	const header = Buffer.alloc(6 + pngEntries.length * 16);
+	header.writeUInt16LE(0, 0);
+	header.writeUInt16LE(1, 2);
+	header.writeUInt16LE(pngEntries.length, 4);
+
+	let offset = header.length;
+	const images = [];
+	pngEntries.forEach((entry, index) => {
+		const directoryOffset = 6 + index * 16;
+		header[directoryOffset] = entry.size >= 256 ? 0 : entry.size;
+		header[directoryOffset + 1] = entry.size >= 256 ? 0 : entry.size;
+		header[directoryOffset + 2] = 0;
+		header[directoryOffset + 3] = 0;
+		header.writeUInt16LE(1, directoryOffset + 4);
+		header.writeUInt16LE(32, directoryOffset + 6);
+		header.writeUInt32LE(entry.png.length, directoryOffset + 8);
+		header.writeUInt32LE(offset, directoryOffset + 12);
+		images.push(entry.png);
+		offset += entry.png.length;
+	});
+
+	return Buffer.concat([header, ...images]);
 }
 
 function withWimpsBranding(indexHtml) {
@@ -99,6 +241,34 @@ async function writeLicenseNotices() {
 
 	for (const file of noticeFiles) {
 		await fs.copyFile(path.join(repoRoot, file), path.join(outRoot, file));
+	}
+}
+
+async function writeWimpsIconFiles() {
+	const icon192 = renderWimpsLogoPng(192);
+	const icon512 = renderWimpsLogoPng(512);
+	const favicon32 = renderWimpsLogoPng(32);
+	const favicon16 = renderWimpsLogoPng(16);
+
+	await Promise.all([
+		fs.writeFile(path.join(outRoot, 'favicon.svg'), wimpsLogoSvg),
+		fs.writeFile(path.join(outRoot, 'favicon.ico'), encodeIco([
+			{ size: 32, png: favicon32 },
+			{ size: 16, png: favicon16 },
+		])),
+		fs.writeFile(path.join(outRoot, 'code-192.png'), icon192),
+		fs.writeFile(path.join(outRoot, 'code-512.png'), icon512),
+		fs.mkdir(path.join(outRoot, 'out/media'), { recursive: true }).then(() => fs.writeFile(path.join(outRoot, 'out/media/code-icon.svg'), wimpsLogoSvg)),
+	]);
+
+	const manifestPath = path.join(outRoot, 'manifest.json');
+	try {
+		const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+		manifest.name = 'WIMPS Code';
+		manifest.short_name = 'WIMPS Code';
+		await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, '\t')}\n`);
+	} catch {
+		// The web manifest is optional in some local build layouts.
 	}
 }
 
@@ -285,7 +455,9 @@ async function writeStaticWorkbench() {
 	const template = await fs.readFile(workbenchTemplatePath, 'utf8');
 	let indexHtml = template
 		.replace(/\{\{([^}]+)\}\}/g, (match, key) => replacements.get(key) ?? match)
+		.replace('<meta name="apple-mobile-web-app-title" content="Code">', '<meta name="apple-mobile-web-app-title" content="WIMPS Code">')
 		.replace('/resources/server/code-192.png', '/code-192.png')
+		.replace('<link rel="icon" href="/resources/server/favicon.ico" type="image/x-icon" />', '<link rel="icon" href="/favicon.svg" type="image/svg+xml" />')
 		.replace('/resources/server/favicon.ico', '/favicon.ico')
 		.replace('/resources/server/manifest.json', '/manifest.json');
 
@@ -321,6 +493,7 @@ async function main() {
 	await copyPreparedWimpsExtension();
 	await copyTextMateRuntimeAssets();
 	await patchTextMateRuntimePaths();
+	await writeWimpsIconFiles();
 	await writeStaticWorkbench();
 	await writeCloudflareFiles();
 	await writeLicenseNotices();

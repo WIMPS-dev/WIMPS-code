@@ -10,6 +10,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import product from '../../../../platform/product/common/product.js';
 import { Extensions as QuickAccessExtensions, IQuickAccessRegistry } from '../../../../platform/quickinput/common/quickAccess.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
@@ -50,36 +51,37 @@ AccessibleViewRegistry.register(new SearchAccessibilityHelp());
 
 const SEARCH_MODE_CONFIG = 'search.mode';
 
-const viewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
-	id: VIEWLET_ID,
-	title: nls.localize2('search', "Search"),
-	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [VIEWLET_ID, { mergeViewWithContainerWhenSingleView: true }]),
-	hideIfEmpty: true,
-	icon: searchViewIcon,
-	order: 1,
-}, ViewContainerLocation.Sidebar, { doNotRegisterOpenCommand: true });
+if (!product.wimpsWorkbench?.pruneUnwiredSurfaces) {
+	const viewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
+		id: VIEWLET_ID,
+		title: nls.localize2('search', "Search"),
+		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [VIEWLET_ID, { mergeViewWithContainerWhenSingleView: true }]),
+		hideIfEmpty: true,
+		icon: searchViewIcon,
+		order: 1,
+	}, ViewContainerLocation.Sidebar, { doNotRegisterOpenCommand: true });
 
-const viewDescriptor: IViewDescriptor = {
-	id: VIEW_ID,
-	containerIcon: searchViewIcon,
-	name: nls.localize2('search', "Search"),
-	ctorDescriptor: new SyncDescriptor(SearchView),
-	canToggleVisibility: false,
-	canMoveView: true,
-	openCommandActionDescriptor: {
-		id: viewContainer.id,
-		mnemonicTitle: nls.localize({ key: 'miViewSearch', comment: ['&& denotes a mnemonic'] }, "&&Search"),
-		keybindings: {
-			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyF,
-			// Yes, this is weird. See #116188, #115556, #115511, and now #124146, for examples of what can go wrong here.
-			when: ContextKeyExpr.regex('neverMatch', /doesNotMatch/)
-		},
-		order: 1
-	}
-};
+	const viewDescriptor: IViewDescriptor = {
+		id: VIEW_ID,
+		containerIcon: searchViewIcon,
+		name: nls.localize2('search', "Search"),
+		ctorDescriptor: new SyncDescriptor(SearchView),
+		canToggleVisibility: false,
+		canMoveView: true,
+		openCommandActionDescriptor: {
+			id: viewContainer.id,
+			mnemonicTitle: nls.localize({ key: 'miViewSearch', comment: ['&& denotes a mnemonic'] }, "&&Search"),
+			keybindings: {
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyF,
+				// Yes, this is weird. See #116188, #115556, #115511, and now #124146, for examples of what can go wrong here.
+				when: ContextKeyExpr.regex('neverMatch', /doesNotMatch/)
+			},
+			order: 1
+		}
+	};
 
-// Register search default location to sidebar
-Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([viewDescriptor], viewContainer);
+	Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([viewDescriptor], viewContainer);
+}
 
 // Register Quick Access Handler
 const quickAccessRegistry = Registry.as<IQuickAccessRegistry>(QuickAccessExtensions.Quickaccess);

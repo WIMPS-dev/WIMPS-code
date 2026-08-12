@@ -73,7 +73,19 @@
       }
     },
     {
+      "scope": "keyword.mnemonic.instruction.riscv",
+      "settings": {
+        "foreground": "#60a5fa"
+      }
+    },
+    {
       "scope": "variable.other.register.mips",
+      "settings": {
+        "foreground": "#fb923c"
+      }
+    },
+    {
+      "scope": "variable.other.register.riscv",
       "settings": {
         "foreground": "#fb923c"
       }
@@ -85,7 +97,22 @@
       }
     },
     {
+      "scope": "keyword.control.directive.riscv",
+      "settings": {
+        "foreground": "#f472b6"
+      }
+    },
+    {
       "scope": "comment.line.number-sign.mips",
+      "settings": {
+        "foreground": "#4ade80"
+      }
+    },
+    {
+      "scope": [
+        "comment.line.number-sign.riscv",
+        "comment.line.semicolon.riscv"
+      ],
       "settings": {
         "foreground": "#4ade80"
       }
@@ -93,19 +120,22 @@
     {
       "scope": "constant.numeric",
       "settings": {
-        "foreground": "#f8fafc"
+        "foreground": "#facc15"
       }
     },
     {
-      "scope": "entity.name.label.mips",
+      "scope": [
+        "entity.name.label.mips",
+        "entity.name.label.riscv"
+      ],
       "settings": {
-        "foreground": "#f8fafc"
+        "foreground": "#c084fc"
       }
     },
     {
       "scope": "string.quoted",
       "settings": {
-        "foreground": "#f8fafc"
+        "foreground": "#a7f3d0"
       }
     }
   ]

@@ -18,7 +18,6 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished",
     "onLanguage:mips",
     "onLanguage:riscv",
     "onLanguage:x86",
@@ -72,7 +71,7 @@
         "title": "Continue Current File with WIMPS",
         "category": "WIMPS",
         "icon": {
-          "light": "resources/action-continue.svg",
+          "light": "resources/action-continue-light.svg",
           "dark": "resources/action-continue.svg"
         }
       },
@@ -81,7 +80,7 @@
         "title": "Step Current File with WIMPS",
         "category": "WIMPS",
         "icon": {
-          "light": "resources/action-step.svg",
+          "light": "resources/action-step-light.svg",
           "dark": "resources/action-step.svg"
         }
       },
@@ -144,7 +143,7 @@
         "title": "Reset WIMPS Simulator",
         "category": "WIMPS",
         "icon": {
-          "light": "resources/action-reset.svg",
+          "light": "resources/action-reset-light.svg",
           "dark": "resources/action-reset.svg"
         }
       },
@@ -274,6 +273,11 @@
         "label": "WIMPS Dark",
         "uiTheme": "vs-dark",
         "path": "./themes/wimps-dark-color-theme.json"
+      },
+      {
+        "label": "WIMPS Light",
+        "uiTheme": "vs",
+        "path": "./themes/wimps-light-color-theme.json"
       }
     ],
     "iconThemes": [
@@ -561,11 +565,12 @@
     }
   },
   "scripts": {
-    "compile": "npm run check-types && npm run compile:desktop && npm run compile:web && npm run compile:web-tests",
+    "compile": "npm run check-types && npm run compile:desktop && npm run compile:web && npm run compile:web-tests && npm run check-size",
     "check-types": "tsc -p ./ --noEmit",
     "compile:desktop": "esbuild src/extension.ts --bundle --format=cjs --platform=node --external:vscode --outfile=out/extension.js --sourcemap",
     "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --external:node:* --external:module --outfile=out/extension-web.js --sourcemap",
     "compile:web-tests": "esbuild test/web/extensionTests.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/test-web.js --sourcemap",
+    "check-size": "node scripts/check-bundle-size.cjs",
     "test:smoke": "npm run compile && node scripts/smoke-extension.cjs",
     "test:extension": "npm run compile && node test/runTest.cjs",
     "test:extension-web": "npm run compile && node test/runWebTest.cjs",

@@ -15,6 +15,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import product from '../../../../platform/product/common/product.js';
 import { IProgressService } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
@@ -60,6 +61,7 @@ registerSingleton(ITestExplorerFilterState, TestExplorerFilterState, Instantiati
 registerSingleton(ITestingPeekOpener, TestingPeekOpener, InstantiationType.Delayed);
 registerSingleton(ITestingDecorationsService, TestingDecorationService, InstantiationType.Delayed);
 
+if (!product.wimpsWorkbench?.pruneUnwiredSurfaces) {
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: Testing.ViewletId,
 	title: localize2('test', 'Testing'),
@@ -130,6 +132,7 @@ viewsRegistry.registerViews([{
 	containerIcon: testingViewIcon,
 	when: TestingContextKeys.isTestCoverageOpen,
 }], viewContainer);
+}
 
 allTestActions.forEach(registerAction2);
 registerAction2(OpenMessageInEditorAction);
@@ -290,4 +293,3 @@ CommandsRegistry.registerCommand({
 });
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(testingConfiguration);
-

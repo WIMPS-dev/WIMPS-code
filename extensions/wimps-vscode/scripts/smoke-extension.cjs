@@ -31,10 +31,35 @@ function assembleExample({ architecture, file, expectErrors = false }) {
   assert(simulator.getCompiledStatements().length > 0, `${file} assembled without compiled statements.`);
 }
 
+function verifyAssemblyTokenColors({ themeName, file }) {
+  const colorTheme = JSON.parse(readText(file));
+  const tokenScopes = new Set((colorTheme.tokenColors ?? []).flatMap(rule => Array.isArray(rule.scope) ? rule.scope : [rule.scope]));
+  for (const scope of [
+    'keyword.mnemonic.instruction.riscv',
+    'variable.other.register.riscv',
+    'keyword.control.directive.riscv',
+    'comment.line.number-sign.riscv',
+    'entity.name.label.riscv',
+  ]) {
+    assert(tokenScopes.has(scope), `${themeName} should color ${scope}.`);
+  }
+}
+
 function verifyManifestAndBundles() {
   const manifest = JSON.parse(readText('package.json'));
   assert(manifest.main === './out/extension.js', 'Desktop entry should stay at ./out/extension.js.');
   assert(manifest.browser === './out/extension-web.js', 'Browser entry should point at ./out/extension-web.js.');
+  assert(!(manifest.activationEvents ?? []).includes('onStartupFinished'), 'WIMPS should not activate on every VS Code startup.');
+  const commands = manifest.contributes?.commands ?? [];
+  for (const [command, lightIcon] of [
+    ['wimps.continueCurrentFile', 'resources/action-continue-light.svg'],
+    ['wimps.stepCurrentFile', 'resources/action-step-light.svg'],
+    ['wimps.resetSimulator', 'resources/action-reset-light.svg'],
+  ]) {
+    const contribution = commands.find(item => item.command === command);
+    assert(contribution?.icon?.light === lightIcon, `${command} should use a visible light-theme action icon.`);
+    assert(fs.existsSync(path.join(root, lightIcon)), `${lightIcon} should be packaged.`);
+  }
   const riscvLanguage = (manifest.contributes?.languages ?? []).find(language => language.id === 'riscv');
   assert(riscvLanguage, 'RISC-V language contribution is missing.');
   for (const extension of ['.riscv', '.rv', '.rvasm']) {
@@ -58,6 +83,15 @@ function verifyManifestAndBundles() {
   assert(fileIconTheme.languageIds?.x86 === '_assembly', 'File icon theme should map the x86 language to the assembly icon.');
   assert(fs.existsSync(path.join(root, 'resources/file-assembly.svg')), 'Assembly SVG icon should be packaged.');
   assert(fs.existsSync(path.join(root, 'resources/file-assembly-light.svg')), 'Light assembly SVG icon should be packaged.');
+  const themes = manifest.contributes?.themes ?? [];
+  const darkTheme = themes.find(theme => theme.label === 'WIMPS Dark');
+  const lightTheme = themes.find(theme => theme.label === 'WIMPS Light');
+  assert(darkTheme?.uiTheme === 'vs-dark', 'WIMPS Dark theme should be registered as a dark theme.');
+  assert(darkTheme?.path === './themes/wimps-dark-color-theme.json', 'WIMPS Dark theme path is wrong.');
+  assert(lightTheme?.uiTheme === 'vs', 'WIMPS Light theme should be registered as a light theme.');
+  assert(lightTheme?.path === './themes/wimps-light-color-theme.json', 'WIMPS Light theme path is wrong.');
+  verifyAssemblyTokenColors({ themeName: 'WIMPS Dark', file: 'themes/wimps-dark-color-theme.json' });
+  verifyAssemblyTokenColors({ themeName: 'WIMPS Light', file: 'themes/wimps-light-color-theme.json' });
 
   const desktopBundle = readText(manifest.main);
   const webBundle = readText(manifest.browser);
@@ -92,11 +126,11 @@ function verifyManifestAndBundles() {
 
   const containers = manifest.contributes?.viewsContainers?.activitybar ?? [];
   const expectedContainers = new Map([
-    ['wimpsRegisters', { viewId: 'wimps.registers', title: 'WIMPS Registers' }],
-    ['wimpsMemory', { viewId: 'wimps.memory', title: 'WIMPS Memory' }],
-    ['wimpsBitmap', { viewId: 'wimps.bitmap', title: 'WIMPS Bitmap' }],
-    ['wimpsProgram', { viewId: 'wimps.program', title: 'WIMPS Program' }],
-    ['wimpsAnalysis', { viewId: 'wimps.analysis', title: 'WIMPS Analysis' }],
+    ['wimpsRegisters', { viewId: 'wimps.registers', title: 'WIMPS Registers', type: 'webview' }],
+    ['wimpsMemory', { viewId: 'wimps.memory', title: 'WIMPS Memory', type: 'webview' }],
+    ['wimpsBitmap', { viewId: 'wimps.bitmap', title: 'WIMPS Bitmap', type: 'webview' }],
+    ['wimpsProgram', { viewId: 'wimps.program', title: 'WIMPS Program', type: 'webview' }],
+    ['wimpsAnalysis', { viewId: 'wimps.analysis', title: 'WIMPS Analysis', type: 'webview' }],
   ]);
   for (const [containerId, expected] of expectedContainers) {
     const container = containers.find(item => item.id === containerId);
@@ -106,7 +140,7 @@ function verifyManifestAndBundles() {
     assert(views.length === 1, `${containerId} should contain exactly one WIMPS view.`);
     assert(views[0]?.id === expected.viewId, `${containerId} should contain ${expected.viewId}.`);
     assert(views[0]?.contextualTitle === expected.title, `${expected.viewId} should use a clear contextual title.`);
-    assert(views[0]?.type === 'webview', `${expected.viewId} should use responsive webview content.`);
+    assert(views[0]?.type === expected.type, `${expected.viewId} should use responsive webview content.`);
     assert(views[0]?.when === 'wimps.hasAssemblyFile', `${expected.viewId} should stay visible while an assembly file is visible.`);
   }
   assert(!manifest.contributes?.views?.wimps, 'WIMPS tools should be split into separate activity bar containers.');

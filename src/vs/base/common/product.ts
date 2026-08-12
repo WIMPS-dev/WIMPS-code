@@ -152,6 +152,10 @@ export interface IProductConfiguration {
 
 	readonly agentSdks?: { readonly [packageId: string]: IAgentSdkProductConfig };
 
+	readonly wimpsWorkbench?: {
+		readonly pruneUnwiredSurfaces?: boolean;
+	};
+
 	readonly dictationRuntime?: IDictationRuntimeProductConfig;
 
 	readonly mcpGallery?: {
