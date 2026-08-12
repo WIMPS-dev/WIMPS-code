@@ -501,6 +501,7 @@
           "id": "wimps.registers",
           "name": "Register State",
           "contextualTitle": "WIMPS Registers",
+          "type": "webview",
           "when": "wimps.hasAssemblyFile"
         }
       ],
@@ -509,6 +510,7 @@
           "id": "wimps.memory",
           "name": "Data Memory",
           "contextualTitle": "WIMPS Memory",
+          "type": "webview",
           "when": "wimps.hasAssemblyFile"
         }
       ],
@@ -526,6 +528,7 @@
           "id": "wimps.program",
           "name": "Program Listing",
           "contextualTitle": "WIMPS Program",
+          "type": "webview",
           "when": "wimps.hasAssemblyFile"
         }
       ],
@@ -534,6 +537,7 @@
           "id": "wimps.analysis",
           "name": "Cache Analysis",
           "contextualTitle": "WIMPS Analysis",
+          "type": "webview",
           "when": "wimps.hasAssemblyFile"
         }
       ]

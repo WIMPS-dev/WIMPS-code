@@ -83595,11 +83595,11 @@ function activate(context) {
   const hoverProvider = new AssemblyHoverProvider();
   const definitionProvider = new AssemblyDefinitionProvider();
   const symbolProvider = new AssemblyDocumentSymbolProvider();
-  const registersView = new WimpsStateTreeProvider("registers");
-  const memoryView = new WimpsStateTreeProvider("memory");
+  const registersView = new WimpsStateViewProvider("registers");
+  const memoryView = new WimpsStateViewProvider("memory");
   const bitmapView = new WimpsStateViewProvider("bitmap");
-  const programView = new WimpsStateTreeProvider("program");
-  const analysisView = new WimpsStateTreeProvider("analysis");
+  const programView = new WimpsStateViewProvider("program");
+  const analysisView = new WimpsStateViewProvider("analysis");
   scheduleActiveAssemblyContextRefresh();
   context.subscriptions.push(
     diagnostics,
@@ -83679,11 +83679,11 @@ function activate(context) {
     vscode.workspace.onDidCloseTextDocument(() => {
       scheduleActiveAssemblyContextRefresh();
     }),
-    vscode.window.registerTreeDataProvider("wimps.registers", registersView),
-    vscode.window.registerTreeDataProvider("wimps.memory", memoryView),
+    vscode.window.registerWebviewViewProvider("wimps.registers", registersView),
+    vscode.window.registerWebviewViewProvider("wimps.memory", memoryView),
     vscode.window.registerWebviewViewProvider("wimps.bitmap", bitmapView),
-    vscode.window.registerTreeDataProvider("wimps.program", programView),
-    vscode.window.registerTreeDataProvider("wimps.analysis", analysisView),
+    vscode.window.registerWebviewViewProvider("wimps.program", programView),
+    vscode.window.registerWebviewViewProvider("wimps.analysis", analysisView),
     vscode.debug.registerDebugAdapterDescriptorFactory("wimps", {
       createDebugAdapterDescriptor() {
         const adapter = new WimpsDebugAdapter(context);
@@ -84286,193 +84286,6 @@ var WimpsDebugAdapter = class {
     });
   }
 };
-var WimpsTreeItem = class extends vscode.TreeItem {
-  constructor(label, options = {}) {
-    super(label, options.children?.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
-    this.description = options.description;
-    this.tooltip = options.detail ? new vscode.MarkdownString(options.detail) : void 0;
-    this.iconPath = options.icon;
-    this.command = options.command;
-    this.contextValue = options.contextValue;
-    this.registerName = options.registerName;
-    this.memoryAddress = options.memoryAddress;
-    this.children = options.children;
-  }
-  registerName;
-  memoryAddress;
-  children;
-};
-var WimpsStateTreeProvider = class {
-  constructor(kind) {
-    this.kind = kind;
-    stateViews.add(this);
-  }
-  kind;
-  emitter = new vscode.EventEmitter();
-  onDidChangeTreeData = this.emitter.event;
-  dispose() {
-    stateViews.delete(this);
-    this.emitter.dispose();
-  }
-  refresh() {
-    this.emitter.fire();
-  }
-  getTreeItem(element) {
-    return element;
-  }
-  getChildren(element) {
-    if (element?.children) return element.children;
-    if (!hasActiveAssemblyFile) {
-      return [];
-    }
-    const state = visibleSimState();
-    if (!state) {
-      return [new WimpsTreeItem("Assemble the active file", {
-        description: activeAssemblyFileName,
-        icon: new vscode.ThemeIcon("debug-start")
-      })];
-    }
-    return this.kind === "registers" ? this.registerRows(state) : this.kind === "memory" ? this.memoryRows(state) : this.kind === "program" ? this.programRows(state) : this.analysisRows(state);
-  }
-  registerRows(state) {
-    return [
-      new WimpsTreeItem(`${state.architectureLabel} ${state.status}`, {
-        description: `PC ${state.pc}`,
-        icon: new vscode.ThemeIcon("circuit-board"),
-        detail: `${state.fileName}
-${state.totalInstructions} executed instructions`
-      }),
-      new WimpsTreeItem("General registers", {
-        description: `${state.registers.length}`,
-        icon: new vscode.ThemeIcon("list-tree"),
-        children: state.registers.map((register) => new WimpsTreeItem(register.name, {
-          description: register.hexValue,
-          detail: `Register ${register.number}
-Hex: ${register.hexValue}
-Decimal: ${register.decimalValue ?? ""}`,
-          icon: new vscode.ThemeIcon(register.name === "zero" || register.name === "$zero" ? "circle-slash" : "symbol-variable"),
-          contextValue: "wimpsRegister",
-          registerName: register.name
-        }))
-      }),
-      new WimpsTreeItem("Special registers", {
-        description: `${state.specialRegisters.length}`,
-        icon: new vscode.ThemeIcon("settings-gear"),
-        children: state.specialRegisters.map((register) => new WimpsTreeItem(register.name, {
-          description: register.value,
-          detail: register.detail,
-          icon: new vscode.ThemeIcon("symbol-constant")
-        }))
-      })
-    ];
-  }
-  memoryRows(state) {
-    const rows = state.memory.length ? state.memory : [{ address: "No readable memory", value: "" }];
-    return rows.map((word) => new WimpsTreeItem(word.address, {
-      description: word.value,
-      detail: word.value ? `${word.address}: ${word.value}` : void 0,
-      icon: new vscode.ThemeIcon("symbol-numeric"),
-      contextValue: word.value ? "wimpsMemoryWord" : void 0,
-      memoryAddress: word.value ? word.address : void 0
-    }));
-  }
-  programRows(state) {
-    if (state.program.length === 0) {
-      return [new WimpsTreeItem("No compiled program", {
-        description: state.fileName,
-        icon: new vscode.ThemeIcon("warning")
-      })];
-    }
-    const instructionRows = state.program.map((row) => {
-      const current = row.address === state.pc;
-      return new WimpsTreeItem(formatInstructionDisplay(row.assembly), {
-        description: `${row.address} ${row.machine}${current ? " current" : ""}`,
-        detail: `Source line ${row.sourceLine}: ${row.source}
-${row.machine}`,
-        icon: new vscode.ThemeIcon(current ? "debug-stackframe-active" : "symbol-method"),
-        command: {
-          command: "wimps.revealSourceLine",
-          title: "Reveal Source Line",
-          arguments: [row.sourceLine]
-        },
-        contextValue: current ? "wimpsCurrentProgramRow" : "wimpsProgramRow"
-      });
-    });
-    const symbolRows = state.symbols.map((symbol) => new WimpsTreeItem(symbol.label, {
-      description: `${symbol.segment} ${symbol.address}`,
-      detail: `${symbol.label}
-${symbol.segment} segment
-${symbol.address}`,
-      icon: new vscode.ThemeIcon(symbol.segment === "text" ? "symbol-method" : "symbol-field")
-    }));
-    return [
-      new WimpsTreeItem("Instructions", {
-        description: `${instructionRows.length}`,
-        icon: new vscode.ThemeIcon("list-ordered"),
-        children: instructionRows
-      }),
-      new WimpsTreeItem("Symbols", {
-        description: `${symbolRows.length}`,
-        icon: new vscode.ThemeIcon("symbol-key"),
-        children: symbolRows.length ? symbolRows : [new WimpsTreeItem("No labels found", { icon: new vscode.ThemeIcon("info") })]
-      })
-    ];
-  }
-  analysisRows(state) {
-    const stats = state.stats ?? emptyStats();
-    const statRows = Object.keys(stats).map((key) => {
-      const count = stats[key];
-      const pct = state.totalInstructions ? (count / state.totalInstructions * 100).toFixed(1) : "0.0";
-      return new WimpsTreeItem(key, {
-        description: `${count} (${pct}%)`,
-        icon: new vscode.ThemeIcon(categoryIcon(key))
-      });
-    });
-    const cacheRows = [
-      new WimpsTreeItem("Configuration", {
-        description: `${state.cache.config.cacheBytes} B, ${state.cache.config.blockBytes} B blocks, ${state.cache.config.associativity} way`,
-        icon: new vscode.ThemeIcon("settings-gear")
-      }),
-      new WimpsTreeItem("Hit rate", {
-        description: `${(state.cache.hitRate * 100).toFixed(1)}%`,
-        icon: new vscode.ThemeIcon("dashboard")
-      }),
-      new WimpsTreeItem("Hits / misses", {
-        description: `${state.cache.hits} / ${state.cache.misses}`,
-        icon: new vscode.ThemeIcon("pulse")
-      }),
-      ...state.cache.accesses.slice(-100).map((access) => new WimpsTreeItem(access.hit ? "hit" : "miss", {
-        description: `${formatWordValue(access.address)} ${access.op}${access.line ? ` line ${access.line}` : ""}`,
-        icon: new vscode.ThemeIcon(access.hit ? "check" : "close")
-      }))
-    ];
-    return [
-      new WimpsTreeItem("Instructions executed", {
-        description: String(state.totalInstructions ?? 0),
-        icon: new vscode.ThemeIcon("pulse"),
-        detail: `${state.architectureLabel} ${state.fileName}`
-      }),
-      new WimpsTreeItem("Instruction mix", {
-        description: `${state.totalInstructions ?? 0}`,
-        icon: new vscode.ThemeIcon("graph"),
-        children: statRows
-      }),
-      new WimpsTreeItem("Cache analysis", {
-        description: `${state.cache.hits} hits, ${state.cache.misses} misses`,
-        icon: new vscode.ThemeIcon("database"),
-        children: state.cache.accesses.length ? cacheRows : [
-          new WimpsTreeItem("No accesses yet", {
-            description: "Run or step a program",
-            icon: new vscode.ThemeIcon("info")
-          })
-        ]
-      })
-    ];
-  }
-};
-function categoryIcon(category) {
-  return category === "arithmetic" ? "symbol-operator" : category === "logic" ? "circuit-board" : category === "memory" ? "database" : category === "branch" ? "git-branch" : category === "jump" ? "debug-step-over" : category === "syscall" ? "terminal" : "symbol-misc";
-}
 var WimpsStateViewProvider = class {
   constructor(kind) {
     this.kind = kind;
