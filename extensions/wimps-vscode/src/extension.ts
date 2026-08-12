@@ -11,6 +11,7 @@ const debugAdapters = new Set<WimpsDebugAdapter>();
 let diagnostics: vscode.DiagnosticCollection;
 let outputChannel: vscode.OutputChannel;
 let architectureStatusBarItem: vscode.StatusBarItem;
+let extensionContext: vscode.ExtensionContext | undefined;
 let lastOutputText = '';
 let bitmapDisplaySettings: BitmapDisplaySettings = {
   startAddress: 0x10010000,
@@ -451,8 +452,21 @@ async function createLegacySimulatorInstance(architecture: Exclude<Architecture,
 async function createSimulatorInstance(architecture: Architecture, source: string, output: (value: string) => void): Promise<SimInstance> {
   if (architecture === 'x86') {
     ensureNodeBuiltinModuleShim();
-    const { createX86Emulator } = await import('@specy/x86');
+    const { assemblers, createX86Emulator } = await import('@specy/x86');
     return createX86Emulator({
+      mode: {
+        ...assemblers.NASM_trunk,
+        binaries: {
+          assembler: {
+            ...assemblers.NASM_trunk.binaries.assembler,
+            file: await readPackagedX86Asset('nasm.3.00.elf'),
+          },
+          linker: {
+            ...assemblers.NASM_trunk.binaries.linker,
+            file: await readPackagedX86Asset('gnu-ld.2.43.50.elf'),
+          },
+        },
+      },
       callbacks: {
         stdout: (charCode: number) => output(String.fromCharCode(charCode)),
         stderr: (charCode: number) => output(String.fromCharCode(charCode)),
@@ -460,6 +474,11 @@ async function createSimulatorInstance(architecture: Architecture, source: strin
     });
   }
   return createLegacySimulatorInstance(architecture, source);
+}
+
+async function readPackagedX86Asset(fileName: string): Promise<Uint8Array> {
+  if (!extensionContext) throw new Error('WIMPS extension is not activated.');
+  return vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionContext.extensionUri, 'resources', 'x86', fileName));
 }
 
 function ensureNodeBuiltinModuleShim() {
@@ -1342,6 +1361,7 @@ function updateOutputChannel(state: SimStateMessage) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  extensionContext = context;
   diagnostics = vscode.languages.createDiagnosticCollection('wimps');
   outputChannel = vscode.window.createOutputChannel('WIMPS');
   architectureStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
