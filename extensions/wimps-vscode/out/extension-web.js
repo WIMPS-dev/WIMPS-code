@@ -89233,8 +89233,6 @@ var NativeAssemblySimulator = class {
     if (this.finishedMessageEmitted) return;
     if (this.architecture === "x86") {
       this.flushX86OutputLineBuffer();
-      this.finishedMessageEmitted = true;
-      return;
     }
     this.output += `${this.output && !this.output.endsWith("\n") ? "\n" : ""}=== Program finished ===
 `;
