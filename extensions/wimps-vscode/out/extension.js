@@ -82508,14 +82508,14 @@ async function blinkenlib(moduleArg = {}) {
   var ENVIRONMENT_IS_NODE = globalThis.process?.versions?.node && globalThis.process?.type != "renderer";
   if (ENVIRONMENT_IS_NODE) {
     const { createRequire } = await import("module");
-    var require2 = createRequire(import_meta.url);
+    var require2 = createRequire("file:///wimps-x86/index.mjs");
   }
   var arguments_ = [];
   var thisProgram = "./this.program";
   var quit_ = (status, toThrow) => {
     throw toThrow;
   };
-  var _scriptName = import_meta.url;
+  var _scriptName = "file:///wimps-x86/index.mjs";
   var scriptDirectory = "";
   function locateFile(path) {
     if (Module["locateFile"]) {
@@ -82629,7 +82629,7 @@ async function blinkenlib(moduleArg = {}) {
     if (Module["locateFile"]) {
       return locateFile("blinkenlib.wasm");
     }
-    return new URL("blinkenlib.wasm", import_meta.url).href;
+    return new URL("blinkenlib.wasm", "file:///wimps-x86/index.mjs").href;
   }
   function getBinarySync(file) {
     if (file == wasmBinaryFile && wasmBinary) {
@@ -86698,10 +86698,9 @@ async function blinkenlib(moduleArg = {}) {
   ;
   return moduleRtn;
 }
-var import_meta, blinkenlib_default;
+var blinkenlib_default;
 var init_blinkenlib = __esm({
   "node_modules/@specy/x86/dist/wasm/blinkenlib.js"() {
-    import_meta = {};
     blinkenlib_default = blinkenlib;
   }
 });
@@ -87152,12 +87151,11 @@ function deferToHost() {
 async function createX86Emulator(options = {}) {
   return X86Emulator.create(options);
 }
-var import_meta2, assemblerAsset, assemblers, DEFAULT_ASSEMBLER_ID, SourceMap, X86_REGISTER_NAMES, BlinkState, SIGNALS, SIGTRAP_CODES, SIGNAL_INFO, BlinkRuntime, RegisterSize, EmulatorStatus, BaseEmulator, CircularHistory, X86_FLAGS, X86Emulator;
+var assemblerAsset, assemblers, DEFAULT_ASSEMBLER_ID, SourceMap, X86_REGISTER_NAMES, BlinkState, SIGNALS, SIGTRAP_CODES, SIGNAL_INFO, BlinkRuntime, RegisterSize, EmulatorStatus, BaseEmulator, CircularHistory, X86_FLAGS, X86Emulator;
 var init_dist = __esm({
   "node_modules/@specy/x86/dist/index.mjs"() {
     init_blinkenlib();
-    import_meta2 = {};
-    assemblerAsset = (filename) => new URL(`./assets/assemblers/${filename}`, import_meta2.url);
+    assemblerAsset = (filename) => new URL(`./assets/assemblers/${filename}`, "file:///wimps-x86/index.mjs");
     assemblers = {
       GNU_trunk: {
         id: "GNU_trunk",
