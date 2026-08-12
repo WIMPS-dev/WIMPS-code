@@ -89495,6 +89495,7 @@ var NativeAssemblySimulator = class {
     return formatWordValue(value >>> 0);
   }
   registerHandlers() {
+    if (!this.instance || this.architecture === "x86") return;
     const instance = this.instance;
     instance.registerHandler("printInt", (value) => {
       this.output += String(value);
