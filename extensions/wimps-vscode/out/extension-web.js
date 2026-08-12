@@ -88218,6 +88218,7 @@ var debugAdapters = /* @__PURE__ */ new Set();
 var diagnostics;
 var outputChannel;
 var architectureStatusBarItem;
+var extensionContext;
 var lastOutputText = "";
 var bitmapDisplaySettings = {
   startAddress: 268500992,
@@ -88708,8 +88709,21 @@ async function createLegacySimulatorInstance(architecture, source) {
 async function createSimulatorInstance(architecture, source, output) {
   if (architecture === "x86") {
     ensureNodeBuiltinModuleShim();
-    const { createX86Emulator: createX86Emulator2 } = await Promise.resolve().then(() => (init_dist3(), dist_exports3));
+    const { assemblers: assemblers2, createX86Emulator: createX86Emulator2 } = await Promise.resolve().then(() => (init_dist3(), dist_exports3));
     return createX86Emulator2({
+      mode: {
+        ...assemblers2.NASM_trunk,
+        binaries: {
+          assembler: {
+            ...assemblers2.NASM_trunk.binaries.assembler,
+            file: await readPackagedX86Asset("nasm.3.00.elf")
+          },
+          linker: {
+            ...assemblers2.NASM_trunk.binaries.linker,
+            file: await readPackagedX86Asset("gnu-ld.2.43.50.elf")
+          }
+        }
+      },
       callbacks: {
         stdout: (charCode) => output(String.fromCharCode(charCode)),
         stderr: (charCode) => output(String.fromCharCode(charCode))
@@ -88717,6 +88731,10 @@ async function createSimulatorInstance(architecture, source, output) {
     });
   }
   return createLegacySimulatorInstance(architecture, source);
+}
+async function readPackagedX86Asset(fileName) {
+  if (!extensionContext) throw new Error("WIMPS extension is not activated.");
+  return vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionContext.extensionUri, "resources", "x86", fileName));
 }
 function ensureNodeBuiltinModuleShim() {
   const proc = globalThis.process;
@@ -89521,6 +89539,7 @@ function updateOutputChannel(state) {
   lastOutputText = state.output;
 }
 function activate(context) {
+  extensionContext = context;
   diagnostics = vscode.languages.createDiagnosticCollection("wimps");
   outputChannel = vscode.window.createOutputChannel("WIMPS");
   architectureStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
