@@ -1264,6 +1264,7 @@ class NativeAssemblySimulator {
   }
 
   private registerHandlers() {
+    if (!this.instance || this.architecture === 'x86') return;
     const instance = this.instance as any;
     instance.registerHandler('printInt', (value: any) => { this.output += String(value); });
     instance.registerHandler('printFloat', (value: any) => { this.output += String(value); });
