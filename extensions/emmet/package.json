@@ -485,7 +485,7 @@
     "deps": "npm install @vscode/emmet-helper"
   },
   "devDependencies": {
-    "@types/node": "24.x"
+    "@types/node": "^24.13.3"
   },
   "dependencies": {
     "@emmetio/css-parser": "^0.4.1",

@@ -19,7 +19,7 @@ import { RemoteAgentService } from '../services/remote/browser/remoteAgentServic
 import { RemoteAuthorityResolverService } from '../../platform/remote/browser/remoteAuthorityResolverService.js';
 import { IRemoteAuthorityResolverService, RemoteConnectionType } from '../../platform/remote/common/remoteAuthorityResolver.js';
 import { IRemoteAgentService } from '../services/remote/common/remoteAgentService.js';
-import { FileType, IFileService } from '../../platform/files/common/files.js';
+import { IFileService } from '../../platform/files/common/files.js';
 import { FileService } from '../../platform/files/common/fileService.js';
 import { Schemas, connectionTokenCookieName } from '../../base/common/network.js';
 import { IAnyWorkspaceIdentifier, IWorkspaceContextService, UNKNOWN_EMPTY_WINDOW_WORKSPACE, isSingleFolderWorkspaceIdentifier, isTemporaryWorkspace, isWorkspaceIdentifier } from '../../platform/workspace/common/workspace.js';
@@ -650,7 +650,7 @@ export class BrowserMain extends Disposable {
 
 		try {
 			const stat = await fileService.stat(workspace.uri);
-			if (!(stat.type & FileType.Directory)) {
+			if (!stat.isDirectory) {
 				await fileService.del(workspace.uri);
 				await fileService.createFolder(workspace.uri);
 			}

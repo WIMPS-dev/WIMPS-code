@@ -40,18 +40,22 @@ function verifyManifestAndBundles() {
   for (const extension of ['.riscv', '.rv', '.rvasm']) {
     assert(riscvLanguage.extensions?.includes(extension), `RISC-V language should include ${extension}.`);
   }
+  const x86Language = (manifest.contributes?.languages ?? []).find(language => language.id === 'x86');
+  assert(x86Language, 'x86 language contribution is missing.');
+  assert(x86Language.extensions?.includes('.x86'), 'x86 language should include .x86.');
   const iconTheme = (manifest.contributes?.iconThemes ?? []).find(theme => theme.id === 'wimps-assembly-icons');
   assert(iconTheme?.path === './themes/wimps-file-icon-theme.json', 'WIMPS assembly file icon theme is missing.');
   assert(fs.existsSync(path.join(root, manifest.main)), `${manifest.main} is missing. Run npm run compile.`);
   assert(fs.existsSync(path.join(root, manifest.browser)), `${manifest.browser} is missing. Run npm run compile.`);
   const fileIconTheme = JSON.parse(readText('themes/wimps-file-icon-theme.json'));
-  for (const extension of ['asm', 's', 'riscv', 'rv', 'rvasm']) {
+  for (const extension of ['asm', 's', 'riscv', 'rv', 'rvasm', 'x86']) {
     assert(fileIconTheme.fileExtensions?.[extension] === '_assembly', `File icon theme should map .${extension} to the assembly icon.`);
   }
   assert(fileIconTheme.iconDefinitions?._assembly?.iconPath === '../resources/file-assembly.svg', 'Assembly icon should use a direct SVG asset.');
   assert(fileIconTheme.iconDefinitions?._assembly_light?.iconPath === '../resources/file-assembly-light.svg', 'Light assembly icon should use a direct SVG asset.');
   assert(fileIconTheme.languageIds?.mips === '_assembly', 'File icon theme should map the mips language to the assembly icon.');
   assert(fileIconTheme.languageIds?.riscv === '_assembly', 'File icon theme should map the riscv language to the assembly icon.');
+  assert(fileIconTheme.languageIds?.x86 === '_assembly', 'File icon theme should map the x86 language to the assembly icon.');
   assert(fs.existsSync(path.join(root, 'resources/file-assembly.svg')), 'Assembly SVG icon should be packaged.');
   assert(fs.existsSync(path.join(root, 'resources/file-assembly-light.svg')), 'Light assembly SVG icon should be packaged.');
 
@@ -60,8 +64,10 @@ function verifyManifestAndBundles() {
   assert(fs.existsSync(path.join(root, 'out/test-web.js')), 'Web Extension Host test bundle is missing. Run npm run compile.');
   assert(!desktopBundle.includes('require("@specy/mips")'), 'Desktop bundle still externalizes @specy/mips.');
   assert(!desktopBundle.includes('require("@specy/risc-v")'), 'Desktop bundle still externalizes @specy/risc-v.');
+  assert(!desktopBundle.includes('require("@specy/x86")'), 'Desktop bundle still externalizes @specy/x86.');
   assert(!webBundle.includes('require("@specy/mips")'), 'Web bundle still externalizes @specy/mips.');
   assert(!webBundle.includes('require("@specy/risc-v")'), 'Web bundle still externalizes @specy/risc-v.');
+  assert(!webBundle.includes('require("@specy/x86")'), 'Web bundle still externalizes @specy/x86.');
 
   const editorMenus = [
     ...(manifest.contributes?.menus?.['editor/title'] ?? []),

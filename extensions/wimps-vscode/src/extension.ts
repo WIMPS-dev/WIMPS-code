@@ -27,7 +27,7 @@ let cacheConfig: CacheConfig = {
 let activeAssemblyRefreshTimers: ReturnType<typeof setTimeout>[] = [];
 
 type RunAction = 'assemble' | 'run';
-type Architecture = 'mips' | 'riscv';
+type Architecture = 'mips' | 'riscv' | 'x86';
 type InputKind = 'int' | 'float' | 'double' | 'string' | 'char';
 type RunResult = 'stopped' | 'breakpoint' | 'target' | 'terminated' | 'waiting' | 'limit' | 'not-assembled' | 'no-history';
 type PendingInput = {
@@ -141,6 +141,35 @@ const RISCV_REGISTER_NAMES = [
   'a6','a7','s2','s3','s4','s5','s6','s7',
   's8','s9','s10','s11','t3','t4','t5','t6',
 ] as const;
+const X86_REGISTER_NAMES = [
+  'rax','rbx','rcx','rdx','rsp','rbp','rsi','rdi',
+  'r8','r9','r10','r11','r12','r13','r14','r15','rip',
+] as const;
+const X86_DATA_START_ADDRESS = 0x00400000;
+const X86_WAITING_FOR_INPUT_STATUS = 2;
+
+type X86RegisterName = (typeof X86_REGISTER_NAMES)[number];
+type X86Emulator = {
+  compile(source: string): Promise<{ ok: true; report: string } | { ok: false; report: string; errors: { line: number; error: string }[] }>;
+  initialize(undoSize: number): void;
+  dispose(): void;
+  step(): Promise<{ terminated: boolean }>;
+  run(limit?: number, breakpoints?: number[]): Promise<number>;
+  undo(): void;
+  canUndo(): boolean;
+  writeMemoryBytes(address: bigint, data: Uint8Array): void;
+  readMemoryBytes(address: bigint, length: bigint): Uint8Array;
+  getCompiledCode(): { decorations: unknown[]; code: string };
+  getStatus(): number;
+  getNextInstruction(): { address: bigint; lineNumber: number; code: string } | null;
+  getPc(): bigint;
+  getSp(): bigint;
+  getFlags(): { name: string; value: number; prev?: number }[];
+  getRegisterValue(register: X86RegisterName): bigint;
+  setRegisterValue(register: X86RegisterName, value: bigint): void;
+  hasTerminated(): boolean;
+  provideInput(line: string): void;
+};
 
 type ArchitectureDefinition = {
   id: Architecture;
@@ -164,6 +193,13 @@ const ARCHITECTURES: Record<Architecture, ArchitectureDefinition> = {
     defaultFileName: 'program.riscv',
     dataStartAddress: 0x10010000,
     registers: RISCV_REGISTER_NAMES,
+  },
+  x86: {
+    id: 'x86',
+    label: 'x86',
+    defaultFileName: 'program.x86',
+    dataStartAddress: X86_DATA_START_ADDRESS,
+    registers: X86_REGISTER_NAMES,
   },
 };
 
@@ -190,6 +226,11 @@ const BRANCH_SET = new Set([
   'bltu','bgeu','bgtu','bleu',
 ]);
 const JUMP_SET = new Set(['j','jr','jal','jalr','ret','call','tail']);
+const X86_INSTRUCTION_DOCS = [
+  'mov','lea','push','pop','add','sub','imul','mul','idiv','div','inc','dec','neg',
+  'and','or','xor','not','shl','shr','sar','cmp','test','jmp','je','jne','jg','jge',
+  'jl','jle','ja','jae','jb','jbe','call','ret','syscall','nop',
+].map(name => ({ name, example: name, description: 'x86 instruction' }));
 const RUN_LIMIT = 2_000_000;
 const BITMAP_START_ADDRESS = 0x10010000;
 const DATA_START_ADDRESS = 0x10010000;
@@ -198,7 +239,8 @@ const BITMAP_DEFAULT_HEIGHT = 64;
 const BITMAP_MAX_PIXELS = 256 * 64;
 const MIPS_EXTENSIONS = new Set(['.asm', '.s']);
 const RISCV_EXTENSIONS = new Set(['.riscv', '.rv', '.rvasm']);
-const ASM_EXTENSIONS = new Set([...MIPS_EXTENSIONS, ...RISCV_EXTENSIONS]);
+const X86_EXTENSIONS = new Set(['.x86']);
+const ASM_EXTENSIONS = new Set([...MIPS_EXTENSIONS, ...RISCV_EXTENSIONS, ...X86_EXTENSIONS]);
 const CLASSIC_READ_SYSCALLS = new Map<number, InputKind>([
   [5, 'int'],
   [6, 'float'],
@@ -226,7 +268,7 @@ function getInstructionDocs(architecture: Architecture): Map<string, Instruction
   if (cached) return cached;
 
   const docs = new Map<string, InstructionDoc>();
-  const rawInstructions = architecture === 'riscv' ? RISCV.getInstructionSet() : MIPS.getInstructionSet();
+  const rawInstructions = architecture === 'x86' ? X86_INSTRUCTION_DOCS : architecture === 'riscv' ? RISCV.getInstructionSet() : MIPS.getInstructionSet();
   for (const instruction of rawInstructions) {
     const name = instruction.name?.trim();
     if (!name || docs.has(name.toLowerCase())) continue;
@@ -251,6 +293,9 @@ function labelsInDocument(document: vscode.TextDocument): { label: string; line:
 }
 
 function registerCompletionNames(architecture: Architecture): string[] {
+  if (architecture === 'x86') {
+    return [...X86_REGISTER_NAMES];
+  }
   if (architecture === 'riscv') {
     return [
       ...RISCV_REGISTER_NAMES,
@@ -263,6 +308,9 @@ function registerCompletionNames(architecture: Architecture): string[] {
 
 function resolveRegisterName(name: string, architecture: Architecture): string {
   const normalized = name.trim();
+  if (architecture === 'x86') {
+    return normalized.toLowerCase();
+  }
   if (architecture === 'riscv') {
     const xMatch = normalized.match(/^x([0-9]|[12][0-9]|3[01])$/i);
     if (xMatch) return RISCV_REGISTER_NAMES[Number(xMatch[1])] ?? normalized;
@@ -369,17 +417,40 @@ function categorizeInstruction(mnemonic: string): InstrCategory {
   return 'other';
 }
 
-type SimInstance = JsMips | JsRiscV;
+type SimInstance = JsMips | JsRiscV | X86Emulator;
 
-function createSimulatorInstance(architecture: Architecture, source: string): SimInstance {
+function createLegacySimulatorInstance(architecture: Exclude<Architecture, 'x86'>, source: string): JsMips | JsRiscV {
   return architecture === 'riscv'
     ? RISCV.makeRiscVFromSource(source)
     : MIPS.makeMipsFromSource(source);
 }
 
+async function createSimulatorInstance(architecture: Architecture, source: string, output: (value: string) => void): Promise<SimInstance> {
+  if (architecture === 'x86') {
+    ensureNodeBuiltinModuleShim();
+    const { createX86Emulator } = await import('@specy/x86');
+    return createX86Emulator({
+      callbacks: {
+        stdout: (charCode: number) => output(String.fromCharCode(charCode)),
+        stderr: (charCode: number) => output(String.fromCharCode(charCode)),
+      },
+    });
+  }
+  return createLegacySimulatorInstance(architecture, source);
+}
+
+function ensureNodeBuiltinModuleShim() {
+  const proc = (globalThis as any).process;
+  if (!proc || typeof proc.getBuiltinModule === 'function') return;
+  proc.getBuiltinModule = (name: string) => {
+    if (typeof require === 'function') return require(name);
+    throw new Error(`Cannot load Node built-in module ${name} in this environment.`);
+  };
+}
+
 class NativeAssemblySimulator {
   private architecture: Architecture = 'mips';
-  private instance: SimInstance = createSimulatorInstance(this.architecture, '');
+  private instance: SimInstance = createLegacySimulatorInstance('mips', '');
   private source = '';
   private sourceLines: string[] = [];
   private uri: vscode.Uri | undefined;
@@ -411,7 +482,7 @@ class NativeAssemblySimulator {
       && this.documentVersion === document.version;
   }
 
-  assemble(document: vscode.TextDocument, architecture: Architecture, options: { publish?: boolean } = {}): { ok: true } | { ok: false; report: string; errors: any[] } {
+  async assemble(document: vscode.TextDocument, architecture: Architecture, options: { publish?: boolean } = {}): Promise<{ ok: true } | { ok: false; report: string; errors: any[] }> {
     const publish = options.publish ?? true;
     this.architecture = architecture;
     this.source = document.getText().replace(/\r\n?/g, '\n');
@@ -420,9 +491,13 @@ class NativeAssemblySimulator {
     this.documentVersion = document.version;
     this.fileName = document.fileName.split(/[\\/]/).pop() ?? ARCHITECTURES[architecture].defaultFileName;
     this.resetRuntimeState();
-    this.instance = createSimulatorInstance(architecture, this.source);
-    this.instance.setUndoSize(UNDO_SIZE);
-    const result = this.instance.assemble();
+    try {
+      if (this.architecture === 'x86') {
+        (this.instance as X86Emulator).dispose();
+      }
+    } catch {}
+    this.instance = await createSimulatorInstance(architecture, this.source, value => { this.output += value; });
+    const result = await this.compileCurrentSource();
 
     if (result.hasErrors) {
       this.assembled = false;
@@ -430,7 +505,7 @@ class NativeAssemblySimulator {
       return { ok: false, report: result.report, errors: result.errors ?? [] };
     }
 
-    this.instance.initialize(true);
+    this.initializeRuntime();
     this.registerHandlers();
     this.assembled = true;
     if (publish) publishSimState(this.toState('assembled'));
@@ -439,8 +514,9 @@ class NativeAssemblySimulator {
 
   restartCurrentAssembly(options: { publish?: boolean } = {}) {
     if (!this.assembled) return false;
+    if (this.architecture === 'x86') return false;
     this.resetRuntimeState();
-    this.instance.initialize(true);
+    this.initializeRuntime();
     this.registerHandlers();
     if (options.publish ?? true) publishSimState(this.toState('assembled'));
     return true;
@@ -448,15 +524,14 @@ class NativeAssemblySimulator {
 
   async step(): Promise<RunResult> {
     if (!this.assembled) return 'not-assembled';
-    if (this.instance.terminated) {
+    if (this.isTerminated()) {
       publishSimState(this.toState('terminated'));
       return 'terminated';
     }
     if (!await this.prepareInputIfNeeded()) return 'waiting';
     this.snapshotBeforeStep();
     this.trackCurrentInstruction();
-    this.instance.step();
-    const done = this.instance.terminated;
+    const done = await this.stepInstance();
     if (done) this.appendProgramFinished();
     publishSimState(this.toState(done ? 'terminated' : 'running'));
     return done ? 'terminated' : 'stopped';
@@ -465,7 +540,7 @@ class NativeAssemblySimulator {
   async runUntilBreak(breakpointLines: Set<number>, limit = RUN_LIMIT): Promise<RunResult> {
     if (!this.assembled) return 'not-assembled';
 
-    for (let i = 0; i < limit && !this.instance.terminated; i++) {
+    for (let i = 0; i < limit && !this.isTerminated(); i++) {
       const line = this.currentSourceLine();
       if (line !== null && breakpointLines.has(line)) {
         publishSimState(this.toState('running'));
@@ -474,11 +549,12 @@ class NativeAssemblySimulator {
       if (!await this.prepareInputIfNeeded()) return 'waiting';
       this.snapshotBeforeStep();
       this.trackCurrentInstruction();
-      this.instance.step();
+      const steppedToTermination = await this.stepInstance();
+      if (steppedToTermination) break;
       if (i > 0 && i % RUN_YIELD_INTERVAL === 0) await yieldToExtensionHost();
     }
 
-    const done = this.instance.terminated;
+    const done = this.isTerminated();
     if (done) {
       this.appendProgramFinished();
     } else {
@@ -496,7 +572,7 @@ class NativeAssemblySimulator {
     this.uri = undefined;
     this.fileName = 'No file';
     this.resetRuntimeState();
-    this.instance = createSimulatorInstance(this.architecture, '');
+    this.instance = createLegacySimulatorInstance('mips', '');
     publishSimState(this.toState('idle'));
   }
 
@@ -512,10 +588,70 @@ class NativeAssemblySimulator {
     this.finishedMessageEmitted = false;
   }
 
+  private async compileCurrentSource(): Promise<{ hasErrors: boolean; report: string; errors: any[] }> {
+    if (this.architecture === 'x86') {
+      const result = await (this.instance as X86Emulator).compile(this.source);
+      return result.ok
+        ? { hasErrors: false, report: result.report, errors: [] }
+        : {
+          hasErrors: true,
+          report: result.report,
+          errors: result.errors.map(error => ({
+            lineNumber: error.line,
+            columnNumber: 1,
+            message: error.error,
+          })),
+        };
+    }
+
+    (this.instance as JsMips | JsRiscV).setUndoSize(UNDO_SIZE);
+    const result = (this.instance as JsMips | JsRiscV).assemble();
+    return {
+      hasErrors: result.hasErrors,
+      report: result.report,
+      errors: result.errors ?? [],
+    };
+  }
+
+  private initializeRuntime() {
+    if (this.architecture === 'x86') {
+      (this.instance as X86Emulator).initialize(UNDO_SIZE);
+    } else {
+      (this.instance as JsMips | JsRiscV).setUndoSize(UNDO_SIZE);
+      (this.instance as JsMips | JsRiscV).initialize(true);
+    }
+  }
+
+  private isTerminated(): boolean {
+    return this.architecture === 'x86'
+      ? (this.instance as X86Emulator).hasTerminated()
+      : Boolean((this.instance as JsMips | JsRiscV).terminated);
+  }
+
+  private getPc(): bigint {
+    return this.architecture === 'x86'
+      ? (this.instance as X86Emulator).getPc()
+      : BigInt((this.instance as JsMips | JsRiscV).programCounter >>> 0);
+  }
+
+  private async stepInstance(): Promise<boolean> {
+    if (this.architecture === 'x86') {
+      const result = await (this.instance as X86Emulator).step();
+      return result.terminated;
+    }
+
+    (this.instance as JsMips | JsRiscV).step();
+    return Boolean((this.instance as JsMips | JsRiscV).terminated);
+  }
+
+  private undoInstance() {
+    (this.instance as any).undo();
+  }
+
   async runUntilSourceLine(targetLine: number, limit = RUN_LIMIT): Promise<RunResult> {
     if (!this.assembled) return 'not-assembled';
 
-    for (let i = 0; i < limit && !this.instance.terminated; i++) {
+    for (let i = 0; i < limit && !this.isTerminated(); i++) {
       const line = this.currentSourceLine();
       if (line === targetLine) {
         publishSimState(this.toState('running'));
@@ -524,11 +660,12 @@ class NativeAssemblySimulator {
       if (!await this.prepareInputIfNeeded()) return 'waiting';
       this.snapshotBeforeStep();
       this.trackCurrentInstruction();
-      this.instance.step();
+      const steppedToTermination = await this.stepInstance();
+      if (steppedToTermination) break;
       if (i > 0 && i % RUN_YIELD_INTERVAL === 0) await yieldToExtensionHost();
     }
 
-    const done = this.instance.terminated;
+    const done = this.isTerminated();
     if (done) {
       this.appendProgramFinished();
     } else {
@@ -547,7 +684,7 @@ class NativeAssemblySimulator {
     if (output === undefined || stats === undefined) return 'no-history';
 
     try {
-      this.instance.undo();
+      this.undoInstance();
       this.output = output;
       this.stats = stats.stats;
       this.totalInstructions = stats.totalInstructions;
@@ -566,12 +703,17 @@ class NativeAssemblySimulator {
   writeMemoryWord(address: number, value: number): boolean {
     if (!this.assembled) return false;
     try {
-      this.instance.setMemoryBytes(address >>> 0, [
+      const bytes = [
         value & 0xff,
         (value >>> 8) & 0xff,
         (value >>> 16) & 0xff,
         (value >>> 24) & 0xff,
-      ]);
+      ];
+      if (this.architecture === 'x86') {
+        (this.instance as X86Emulator).writeMemoryBytes(BigInt(address >>> 0), Uint8Array.from(bytes));
+      } else {
+        (this.instance as JsMips | JsRiscV).setMemoryBytes(address >>> 0, bytes);
+      }
       publishSimState(this.toState('running'));
       return true;
     } catch {
@@ -582,7 +724,9 @@ class NativeAssemblySimulator {
   writeRegister(name: string, value: bigint): boolean {
     if (!this.assembled) return false;
     try {
-      if (this.architecture === 'riscv') {
+      if (this.architecture === 'x86') {
+        (this.instance as X86Emulator).setRegisterValue(name as X86RegisterName, BigInt.asUintN(64, value));
+      } else if (this.architecture === 'riscv') {
         const [high, low] = bigintToHighLow(BigInt.asUintN(64, value));
         (this.instance as JsRiscV).setRegisterValue(name as RiscvRegisterName, high, low);
       } else {
@@ -624,7 +768,7 @@ class NativeAssemblySimulator {
 
   toState(status: SimStateMessage['status']): SimStateMessage {
     let pc = 0;
-    try { pc = this.instance.programCounter >>> 0; } catch {}
+    try { pc = Number(this.getPc() & 0xffffffffn) >>> 0; } catch {}
 
     return {
       type: 'wimps.simState',
@@ -669,13 +813,25 @@ class NativeAssemblySimulator {
     }
 
     this.pendingInputs.push({ kind, value });
+    if (this.architecture === 'x86') {
+      (this.instance as X86Emulator).provideInput(value);
+      this.pendingInputs.pop();
+    }
     this.waitingForInput = null;
     return true;
   }
 
   private pendingInputKind(): InputKind | null {
+    if (this.architecture === 'x86') {
+      try {
+        return (this.instance as X86Emulator).getStatus() === X86_WAITING_FOR_INPUT_STATUS ? 'string' : null;
+      } catch {
+        return null;
+      }
+    }
     try {
-      const stmt = this.instance.getStatementAtAddress(this.instance.programCounter);
+      const instance = this.instance as JsMips | JsRiscV;
+      const stmt = instance.getStatementAtAddress(instance.programCounter);
       const mnemonic = stmt?.assemblyStatement?.trimStart().split(/[\s,	(]/)[0]?.toLowerCase();
       if (this.architecture === 'mips' && mnemonic !== 'syscall') return null;
       if (this.architecture === 'riscv' && mnemonic !== 'ecall') return null;
@@ -710,7 +866,12 @@ class NativeAssemblySimulator {
 
   private currentSourceLine(): number | null {
     try {
-      const stmt = this.instance.getStatementAtAddress(this.instance.programCounter);
+      if (this.architecture === 'x86') {
+        const instruction = (this.instance as X86Emulator).getNextInstruction();
+        return instruction?.lineNumber === undefined ? null : instruction.lineNumber + 1;
+      }
+      const instance = this.instance as JsMips | JsRiscV;
+      const stmt = instance.getStatementAtAddress(instance.programCounter);
       return stmt?.sourceLine ?? null;
     } catch {
       return null;
@@ -719,7 +880,8 @@ class NativeAssemblySimulator {
 
   private trackCurrentInstruction() {
     try {
-      const stmt = this.instance.getStatementAtAddress(this.instance.programCounter);
+      const stmt = this.currentInstruction();
+      if (!stmt) return;
       const mnemonic = stmt?.assemblyStatement?.trimStart().split(/[\s,\t(]/)[0]?.toLowerCase();
       if (!mnemonic) return;
       this.stats[categorizeInstruction(mnemonic)]++;
@@ -747,6 +909,26 @@ class NativeAssemblySimulator {
     this.finishedMessageEmitted = true;
   }
 
+  private currentInstruction(): { address: number; sourceLine: number | null; assemblyStatement: string } | null {
+    if (this.architecture === 'x86') {
+      const instruction = (this.instance as X86Emulator).getNextInstruction();
+      if (!instruction) return null;
+      return {
+        address: Number(instruction.address & 0xffffffffn) >>> 0,
+        sourceLine: instruction.lineNumber + 1,
+        assemblyStatement: instruction.code,
+      };
+    }
+
+    const instance = this.instance as JsMips | JsRiscV;
+    const statement = instance.getStatementAtAddress(instance.programCounter);
+    return statement ? {
+      address: statement.address,
+      sourceLine: statement.sourceLine ?? null,
+      assemblyStatement: statement.assemblyStatement,
+    } : null;
+  }
+
   private estimateMemoryAccess(assembly: string): Omit<CacheAccess, 'line' | 'hit'> | null {
     const mnemonic = assembly.trimStart().split(/[\s,\t(]/)[0]?.toLowerCase();
     if (!mnemonic || !/^(l|s|fl|fs)[a-z0-9.]*/.test(mnemonic)) return null;
@@ -758,15 +940,29 @@ class NativeAssemblySimulator {
   }
 
   private getRegisterValue(name: string): number {
+    if (this.architecture === 'x86') {
+      return Number((this.instance as X86Emulator).getRegisterValue(name as X86RegisterName) & 0xffffffffn) >>> 0;
+    }
     if (this.architecture === 'riscv') {
       return (this.instance as JsRiscV).getRegisterValue(name as RiscvRegisterName) >>> 0;
     }
     return (this.instance as JsMips).getRegisterValue(name as MipsRegisterName) >>> 0;
   }
 
+  private getSp(): bigint {
+    if (this.architecture === 'x86') return (this.instance as X86Emulator).getSp();
+    return BigInt(((this.instance as any).stackPointer ?? 0) >>> 0);
+  }
+
+  private readMemoryBytes(startAddr: number, byteCount: number): Uint8Array | number[] {
+    return this.architecture === 'x86'
+      ? (this.instance as X86Emulator).readMemoryBytes(BigInt(startAddr >>> 0), BigInt(byteCount))
+      : (this.instance as JsMips | JsRiscV).readMemoryBytes(startAddr, byteCount);
+  }
+
   private readMemoryWords(startAddr: number, wordCount: number): SimMemoryWord[] {
     try {
-      const bytes = this.instance.readMemoryBytes(startAddr, wordCount * 4);
+      const bytes = this.readMemoryBytes(startAddr, wordCount * 4);
       return Array.from({ length: wordCount }, (_, index) => {
         const value =
           ((bytes[index * 4 + 3] << 24) |
@@ -786,7 +982,7 @@ class NativeAssemblySimulator {
   private readBitmap(startAddr: number, count: number): SimBitmap {
     const colors: string[] = [];
     try {
-      const bytes = this.instance.readMemoryBytes(startAddr, count * 4);
+      const bytes = this.readMemoryBytes(startAddr, count * 4);
       for (let index = 0; index < count; index++) {
         const red = bytes[index * 4 + 2] ?? 0;
         const green = bytes[index * 4 + 1] ?? 0;
@@ -808,7 +1004,17 @@ class NativeAssemblySimulator {
 
   private getProgramRows(): SimProgramRow[] {
     try {
-      return this.instance.getCompiledStatements().map((statement: any) => {
+      if (this.architecture === 'x86') {
+        return (this.instance as X86Emulator).getCompiledCode().code.split('\n').map((line, index) => ({
+          address: '',
+          binary: 0,
+          machine: '',
+          assembly: line.trim(),
+          sourceLine: index + 1,
+          source: this.sourceLines[index] ?? line,
+        })).filter(row => row.assembly);
+      }
+      return (this.instance as JsMips | JsRiscV).getCompiledStatements().map((statement: any) => {
         const binary = statement.binaryStatement >>> 0;
         return {
           address: `0x${(statement.address >>> 0).toString(16).padStart(8, '0').toUpperCase()}`,
@@ -828,7 +1034,13 @@ class NativeAssemblySimulator {
     const rows = new Map<string, SimSymbolRow>();
     for (const statement of this.getProgramRows()) {
       let label: string | null = null;
-      try { label = this.instance.getLabelAtAddress(parseInt(statement.address.slice(2), 16)); } catch {}
+      try {
+        if (statement.address) {
+          label = this.architecture === 'x86'
+            ? null
+            : (this.instance as JsMips | JsRiscV).getLabelAtAddress(parseInt(statement.address.slice(2), 16));
+        }
+      } catch {}
       if (label) {
         rows.set(`${label}:${statement.address}`, {
           label,
@@ -868,20 +1080,26 @@ class NativeAssemblySimulator {
 
   private getSpecialRegisters(): SimSpecialRegister[] {
     const rows: SimSpecialRegister[] = [
-      { name: 'pc', value: this.formatRegisterValue(this.instance.programCounter), detail: 'Program counter' },
+      { name: 'pc', value: this.formatRegisterValue(Number(this.getPc() & 0xffffffffn)), detail: 'Program counter' },
     ];
-    try { rows.push({ name: 'sp', value: this.formatRegisterValue((this.instance as any).stackPointer), detail: 'Stack pointer' }); } catch {}
+    try { rows.push({ name: 'sp', value: this.formatRegisterValue(Number(this.getSp() & 0xffffffffn)), detail: 'Stack pointer' }); } catch {}
     if (this.architecture === 'mips') {
       try { rows.push({ name: 'hi', value: this.formatRegisterValue((this.instance as JsMips).getHi()), detail: 'Multiply/divide high register' }); } catch {}
       try { rows.push({ name: 'lo', value: this.formatRegisterValue((this.instance as JsMips).getLo()), detail: 'Multiply/divide low register' }); } catch {}
     }
     try {
-      const flags = this.instance.getConditionFlags();
-      flags.forEach((flag, index) => rows.push({
-        name: `flag${index}`,
-        value: String(flag),
-        detail: 'Floating-point condition flag',
-      }));
+      if (this.architecture === 'x86') {
+        for (const flag of (this.instance as X86Emulator).getFlags()) {
+          rows.push({ name: flag.name, value: String(flag.value), detail: 'Condition flag' });
+        }
+      } else {
+        const flags = (this.instance as JsMips | JsRiscV).getConditionFlags();
+        flags.forEach((flag, index) => rows.push({
+          name: `flag${index}`,
+          value: String(flag),
+          detail: 'Floating-point condition flag',
+        }));
+      }
     } catch {}
     return rows;
   }
@@ -994,6 +1212,7 @@ export function activate(context: vscode.ExtensionContext) {
   const assemblySelector: vscode.DocumentSelector = [
     { language: 'mips' },
     { language: 'riscv' },
+    { language: 'x86' },
   ];
   const completionProvider = new AssemblyCompletionProvider();
   const hoverProvider = new AssemblyHoverProvider();
@@ -1102,7 +1321,7 @@ export function deactivate() {}
 async function loadCurrentFileNative(action: RunAction) {
   const document = getActiveAssemblyDocument();
   if (!document) {
-    await vscode.window.showWarningMessage('Open a MIPS or RISC-V assembly file first.');
+    await vscode.window.showWarningMessage('Open a MIPS, RISC-V, or x86 assembly file first.');
     return false;
   }
 
@@ -1112,7 +1331,7 @@ async function loadCurrentFileNative(action: RunAction) {
 async function ensureCurrentFileAssembled(): Promise<boolean> {
   const document = getActiveAssemblyDocument();
   if (!document) {
-    await vscode.window.showWarningMessage('Open a MIPS or RISC-V assembly file first.');
+    await vscode.window.showWarningMessage('Open a MIPS, RISC-V, or x86 assembly file first.');
     return false;
   }
 
@@ -1154,7 +1373,7 @@ async function stepBackCurrentFileNative() {
 async function runToCursorNative() {
   const editor = vscode.window.activeTextEditor;
   if (!editor || !isAssemblyDocument(editor.document)) {
-    await vscode.window.showWarningMessage('Open a MIPS or RISC-V assembly file first.');
+    await vscode.window.showWarningMessage('Open a MIPS, RISC-V, or x86 assembly file first.');
     return;
   }
 
@@ -1312,7 +1531,7 @@ async function copyMemoryDumpNative() {
 
 async function loadDocumentNative(document: vscode.TextDocument, action: RunAction): Promise<boolean> {
   if (!isAssemblyDocument(document)) {
-    await vscode.window.showWarningMessage('Open a MIPS or RISC-V assembly file first.');
+    await vscode.window.showWarningMessage('Open a MIPS, RISC-V, or x86 assembly file first.');
     return false;
   }
 
@@ -1320,10 +1539,10 @@ async function loadDocumentNative(document: vscode.TextDocument, action: RunActi
 
   const architecture = getDocumentArchitecture(document);
   const result = action === 'run' && nativeSimulator.isCurrentDocument(document, architecture)
-    ? (nativeSimulator.restartCurrentAssembly({ publish: false }) ? { ok: true as const } : nativeSimulator.assemble(document, architecture, { publish: false }))
-    : nativeSimulator.assemble(document, architecture, { publish: action !== 'run' });
+    ? (nativeSimulator.restartCurrentAssembly({ publish: false }) ? { ok: true as const } : await nativeSimulator.assemble(document, architecture, { publish: false }))
+    : await nativeSimulator.assemble(document, architecture, { publish: action !== 'run' });
   if (!result.ok) {
-    diagnostics.set(document.uri, result.errors.map(error => {
+    diagnostics.set(document.uri, result.errors.map((error: any) => {
       const line = Math.max(0, Number(error.lineNumber ?? 1) - 1);
       const column = Math.max(0, Number(error.columnNumber ?? 1) - 1);
       return new vscode.Diagnostic(
@@ -1351,7 +1570,7 @@ async function loadDocumentNative(document: vscode.TextDocument, action: RunActi
 
 function isAssemblyDocument(document: vscode.TextDocument | undefined): document is vscode.TextDocument {
   if (!document || document.isUntitled) return false;
-  if (document.languageId === 'mips' || document.languageId === 'riscv') return true;
+  if (document.languageId === 'mips' || document.languageId === 'riscv' || document.languageId === 'x86') return true;
   const fileName = document.fileName.toLowerCase();
   return [...ASM_EXTENSIONS].some(extension => fileName.endsWith(extension));
 }
@@ -1359,7 +1578,9 @@ function isAssemblyDocument(document: vscode.TextDocument | undefined): document
 function getDocumentArchitecture(document: vscode.TextDocument): Architecture {
   if (document.languageId === 'riscv') return 'riscv';
   if (document.languageId === 'mips') return 'mips';
+  if (document.languageId === 'x86') return 'x86';
   const fileName = document.fileName.toLowerCase();
+  if ([...X86_EXTENSIONS].some(extension => fileName.endsWith(extension))) return 'x86';
   if ([...RISCV_EXTENSIONS].some(extension => fileName.endsWith(extension))) return 'riscv';
   return 'mips';
 }
@@ -1414,7 +1635,7 @@ function updateArchitectureStatusBar(document: vscode.TextDocument | undefined) 
 async function selectAssemblyArchitecture() {
   const document = getActiveAssemblyDocument();
   if (!document) {
-    await vscode.window.showWarningMessage('Open a MIPS or RISC-V assembly file first.');
+    await vscode.window.showWarningMessage('Open a MIPS, RISC-V, or x86 assembly file first.');
     return;
   }
 
@@ -1422,6 +1643,7 @@ async function selectAssemblyArchitecture() {
   const choice = await vscode.window.showQuickPick([
     { label: 'MIPS', description: current === 'mips' ? 'Current' : 'Use @specy/mips', architecture: 'mips' as const },
     { label: 'RISC-V', description: current === 'riscv' ? 'Current' : 'Use @specy/risc-v', architecture: 'riscv' as const },
+    { label: 'x86', description: current === 'x86' ? 'Current' : 'Use @specy/x86', architecture: 'x86' as const },
   ], {
     title: 'Assembly Architecture',
     placeHolder: 'Choose the simulator and language mode for this file.',
@@ -1553,7 +1775,7 @@ class AssemblyDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
 }
 
 function isAssemblyLikeDocument(document: vscode.TextDocument): boolean {
-  if (document.languageId === 'mips' || document.languageId === 'riscv') return true;
+  if (document.languageId === 'mips' || document.languageId === 'riscv' || document.languageId === 'x86') return true;
   const fileName = document.fileName.toLowerCase();
   return [...ASM_EXTENSIONS].some(extension => fileName.endsWith(extension));
 }
@@ -1570,6 +1792,8 @@ function registerMarkdown(register: string, architecture: Architecture): vscode.
   markdown.appendCodeblock(register, 'asm');
   if (architecture === 'riscv') {
     markdown.appendMarkdown(`RISC-V general-purpose register ${register}.`);
+  } else if (architecture === 'x86') {
+    markdown.appendMarkdown(`x86 general-purpose register ${register}.`);
   } else {
     markdown.appendMarkdown(`MIPS general-purpose register ${register}.`);
   }
@@ -2125,8 +2349,8 @@ function viewTitle(kind: WimpsStateViewProvider['kind']): string {
 function renderInactiveView(kind: WimpsStateViewProvider['kind']): string {
   return renderViewShell(viewTitle(kind), renderEmptyCard(
     'No assembly file active',
-    'Open a MIPS or RISC-V assembly file to show simulator state here.',
-    ['.asm', '.s', '.riscv'],
+    'Open a MIPS, RISC-V, or x86 assembly file to show simulator state here.',
+    ['.asm', '.s', '.riscv', '.x86'],
   ));
 }
 

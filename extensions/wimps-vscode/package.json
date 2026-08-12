@@ -1,7 +1,7 @@
 {
   "name": "wimps-vscode",
   "displayName": "WIMPS",
-  "description": "Run MIPS and RISC-V assembly programs inside VS Code.",
+  "description": "Run MIPS, RISC-V, and x86 assembly programs inside VS Code.",
   "version": "0.0.1",
   "publisher": "wimps",
   "private": true,
@@ -21,6 +21,7 @@
     "onStartupFinished",
     "onLanguage:mips",
     "onLanguage:riscv",
+    "onLanguage:x86",
     "onCommand:wimps.assembleCurrentFile",
     "onCommand:wimps.runCurrentFile",
     "onCommand:wimps.continueCurrentFile",
@@ -166,6 +167,9 @@
       },
       {
         "language": "riscv"
+      },
+      {
+        "language": "x86"
       }
     ],
     "debuggers": [
@@ -174,7 +178,8 @@
         "label": "WIMPS",
         "languages": [
           "mips",
-          "riscv"
+          "riscv",
+          "x86"
         ],
         "configurationAttributes": {
           "launch": {
@@ -235,6 +240,16 @@
           ".rv",
           ".rvasm"
         ]
+      },
+      {
+        "id": "x86",
+        "aliases": [
+          "x86 Assembly",
+          "x86"
+        ],
+        "extensions": [
+          ".x86"
+        ]
       }
     ],
     "grammars": [
@@ -247,6 +262,11 @@
         "language": "riscv",
         "scopeName": "source.riscv",
         "path": "./syntaxes/riscv.tmLanguage.json"
+      },
+      {
+        "language": "x86",
+        "scopeName": "source.x86",
+        "path": "./syntaxes/x86.tmLanguage.json"
       }
     ],
     "themes": [
@@ -267,32 +287,32 @@
       "editor/title": [
         {
           "command": "wimps.assembleCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@91"
         },
         {
           "command": "wimps.runCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@92"
         },
         {
           "command": "wimps.stepCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@93"
         },
         {
           "command": "wimps.stepBackCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@94"
         },
         {
           "command": "wimps.runToCursor",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@95"
         },
         {
           "command": "wimps.resetSimulator",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@96"
         }
       ],
@@ -341,31 +361,31 @@
       "commandPalette": [
         {
           "command": "wimps.assembleCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.runCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.continueCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.stepCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.stepBackCurrentFile",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.runToCursor",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.editMemoryWord",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.editMemoryWordAtItem",
@@ -373,7 +393,7 @@
         },
         {
           "command": "wimps.setRegisterValue",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.setRegisterValueAtItem",
@@ -381,27 +401,27 @@
         },
         {
           "command": "wimps.configureCache",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.copyAssemblerListing",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.copyMemoryDump",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.resetSimulator",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.openOutput",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         },
         {
           "command": "wimps.selectArchitecture",
-          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv"
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86"
         }
       ],
       "view/item/context": [
@@ -544,7 +564,7 @@
     "compile": "npm run check-types && npm run compile:desktop && npm run compile:web && npm run compile:web-tests",
     "check-types": "tsc -p ./ --noEmit",
     "compile:desktop": "esbuild src/extension.ts --bundle --format=cjs --platform=node --external:vscode --outfile=out/extension.js --sourcemap",
-    "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/extension-web.js --sourcemap",
+    "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --external:node:* --external:module --outfile=out/extension-web.js --sourcemap",
     "compile:web-tests": "esbuild test/web/extensionTests.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/test-web.js --sourcemap",
     "test:smoke": "npm run compile && node scripts/smoke-extension.cjs",
     "test:extension": "npm run compile && node test/runTest.cjs",
@@ -555,7 +575,8 @@
   },
   "dependencies": {
     "@specy/mips": "^1.2.8",
-    "@specy/risc-v": "^1.1.0"
+    "@specy/risc-v": "^1.1.0",
+    "@specy/x86": "^2.0.5"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

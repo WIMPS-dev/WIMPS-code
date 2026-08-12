@@ -30,11 +30,13 @@
     "s": "_assembly",
     "riscv": "_assembly",
     "rv": "_assembly",
-    "rvasm": "_assembly"
+    "rvasm": "_assembly",
+    "x86": "_assembly"
   },
   "languageIds": {
     "mips": "_assembly",
-    "riscv": "_assembly"
+    "riscv": "_assembly",
+    "x86": "_assembly"
   },
   "light": {
     "file": "_file",
@@ -43,11 +45,13 @@
       "s": "_assembly_light",
       "riscv": "_assembly_light",
       "rv": "_assembly_light",
-      "rvasm": "_assembly_light"
+      "rvasm": "_assembly_light",
+      "x86": "_assembly_light"
     },
     "languageIds": {
       "mips": "_assembly_light",
-      "riscv": "_assembly_light"
+      "riscv": "_assembly_light",
+      "x86": "_assembly_light"
     }
   },
   "highContrast": {
@@ -57,11 +61,13 @@
       "s": "_assembly",
       "riscv": "_assembly",
       "rv": "_assembly",
-      "rvasm": "_assembly"
+      "rvasm": "_assembly",
+      "x86": "_assembly"
     },
     "languageIds": {
       "mips": "_assembly",
-      "riscv": "_assembly"
+      "riscv": "_assembly",
+      "x86": "_assembly"
     }
   }
 }

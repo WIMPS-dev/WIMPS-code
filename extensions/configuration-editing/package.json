@@ -187,7 +187,7 @@
     ]
   },
   "devDependencies": {
-    "@types/node": "24.x"
+    "@types/node": "^24.13.3"
   },
   "repository": {
     "type": "git",

@@ -1,0 +1,102 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "x86 Assembly",
+	"scopeName": "source.x86",
+	"patterns": [
+		{ "include": "#comments" },
+		{ "include": "#strings" },
+		{ "include": "#labels" },
+		{ "include": "#directives" },
+		{ "include": "#instructions" },
+		{ "include": "#registers" },
+		{ "include": "#numbers" }
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.semicolon.x86",
+					"match": ";.*$"
+				},
+				{
+					"name": "comment.line.number-sign.x86",
+					"match": "#.*$"
+				}
+			]
+		},
+		"directives": {
+			"patterns": [
+				{
+					"name": "keyword.control.directive.x86",
+					"match": "(?i)(?<![\\w$])(?:\\.(?:align|ascii|asciz|balign|bss|byte|comm|data|double|extern|file|float|global|globl|include|intel_syntax|section|set|space|string|text|type|word)|bits|global|extern|section)(?![\\w$])"
+				}
+			]
+		},
+		"instructions": {
+			"patterns": [
+				{
+					"name": "keyword.mnemonic.instruction.x86",
+					"match": "(?i)(?<![\\w.$])(?:adc|add|and|call|cmp|dec|div|hlt|idiv|imul|inc|int|ja|jae|jb|jbe|je|jg|jge|jl|jle|jmp|jne|lea|leave|mov|movabs|movsx|movsxd|movzx|mul|neg|nop|not|or|pop|push|ret|sal|sar|sbb|shl|shr|sub|syscall|test|xor)(?![\\w.$])"
+				}
+			]
+		},
+		"labels": {
+			"patterns": [
+				{
+					"name": "entity.name.label.x86",
+					"match": "^\\s*([A-Za-z_.$][\\w$\\.]*):"
+				}
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{
+					"name": "constant.numeric.integer.hexadecimal.x86",
+					"match": "(?<![\\w$])-?(?:0x[0-9A-Fa-f]+|[0-9A-Fa-f]+h)(?![\\w$])"
+				},
+				{
+					"name": "constant.numeric.integer.binary.x86",
+					"match": "(?<![\\w$])-?(?:0b[01]+|[01]+b)(?![\\w$])"
+				},
+				{
+					"name": "constant.numeric.integer.decimal.x86",
+					"match": "(?<![\\w$])-?\\d+(?![\\w$])"
+				}
+			]
+		},
+		"registers": {
+			"patterns": [
+				{
+					"name": "variable.other.register.x86",
+					"match": "(?i)(?<![\\w$])(?:r(?:ax|bx|cx|dx|sp|bp|si|di|8|9|10|11|12|13|14|15|ip)|e(?:ax|bx|cx|dx|sp|bp|si|di|ip)|[abcd][lh]|[abcd]x|[sb]p|[sd]i|rip|rsp|rbp)(?![\\w$])"
+				}
+			]
+		},
+		"strings": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.x86",
+					"begin": "\"",
+					"end": "\"",
+					"patterns": [
+						{
+							"name": "constant.character.escape.x86",
+							"match": "\\\\(?:[\\\\\"'abfnrtv]|x[0-9A-Fa-f]{1,2}|[0-7]{1,3})"
+						}
+					]
+				},
+				{
+					"name": "string.quoted.single.x86",
+					"begin": "'",
+					"end": "'",
+					"patterns": [
+						{
+							"name": "constant.character.escape.x86",
+							"match": "\\\\(?:[\\\\\"'abfnrtv]|x[0-9A-Fa-f]{1,2}|[0-7]{1,3})"
+						}
+					]
+				}
+			]
+		}
+	}
+}

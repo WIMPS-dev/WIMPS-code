@@ -48,12 +48,15 @@ suite('WIMPS extension', () => {
     await extension.activate();
   });
 
-  test('detects MIPS and RISC-V file languages', async () => {
+  test('detects MIPS, RISC-V, and x86 file languages', async () => {
     const mips = await openExample('examples/mips/hello.asm');
     assert.strictEqual(mips.languageId, 'mips');
 
     const riscv = await openExample('examples/riscv/hello.riscv');
     assert.strictEqual(riscv.languageId, 'riscv');
+
+    const x86 = await openExample('examples/x86/hello.x86');
+    assert.strictEqual(x86.languageId, 'x86');
   });
 
   test('keeps assembly commands editor-scoped', async () => {
@@ -89,6 +92,15 @@ suite('WIMPS extension', () => {
     );
     const riscvLabels = new Set((riscvCompletions?.items ?? []).map(item => String(item.label)));
     assert.ok(riscvLabels.has('a0'), 'RISC-V completions should include a0.');
+
+    const x86 = await openExample('examples/x86/hello.x86');
+    const x86Completions = await vscode.commands.executeCommand(
+      'vscode.executeCompletionItemProvider',
+      x86.uri,
+      new vscode.Position(0, 0),
+    );
+    const x86Labels = new Set((x86Completions?.items ?? []).map(item => String(item.label)));
+    assert.ok(x86Labels.has('rax'), 'x86 completions should include rax.');
   });
 
   test('provides hover, definition, and document symbols', async () => {
