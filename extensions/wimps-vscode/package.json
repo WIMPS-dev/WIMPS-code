@@ -567,8 +567,8 @@
   "scripts": {
     "compile": "npm run check-types && npm run compile:desktop && npm run compile:web && npm run compile:web-tests && npm run check-size",
     "check-types": "tsc -p ./ --noEmit",
-    "compile:desktop": "esbuild src/extension.ts --bundle --format=cjs --platform=node --external:vscode --outfile=out/extension.js --sourcemap",
-    "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --external:node:* --external:module --outfile=out/extension-web.js --sourcemap",
+    "compile:desktop": "esbuild src/extension.ts --bundle --format=cjs --platform=node --external:vscode --define:import.meta.url='\"file:///wimps-x86/index.mjs\"' --outfile=out/extension.js --sourcemap",
+    "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --external:node:* --external:module --define:import.meta.url='\"file:///wimps-x86/index.mjs\"' --outfile=out/extension-web.js --sourcemap",
     "compile:web-tests": "esbuild test/web/extensionTests.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/test-web.js --sourcemap",
     "check-size": "node scripts/check-bundle-size.cjs",
     "test:smoke": "npm run compile && node scripts/smoke-extension.cjs",
