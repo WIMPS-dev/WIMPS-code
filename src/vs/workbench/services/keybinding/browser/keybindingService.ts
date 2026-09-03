@@ -48,6 +48,7 @@ import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uri
 
 // workbench
 import { remove } from '../../../../base/common/arrays.js';
+import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
 import { commandsExtensionPoint } from '../../actions/common/menusExtensionPoint.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ExtensionMessageCollector, ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -186,10 +187,10 @@ export class WorkbenchKeybindingService extends AbstractKeybindingService {
 	private readonly kbsJsonSchema: KeybindingsJsonSchema;
 
 	constructor(
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ICommandService commandService: ICommandService,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@INotificationService notificationService: INotificationService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@IUserDataProfileService userDataProfileService: IUserDataProfileService,
 		@IHostService private readonly hostService: IHostService,
 		@IExtensionService extensionService: IExtensionService,
@@ -286,6 +287,8 @@ export class WorkbenchKeybindingService extends AbstractKeybindingService {
 			const shouldPreventDefault = this._dispatch(keyEvent, keyEvent.target);
 			if (shouldPreventDefault) {
 				keyEvent.preventDefault();
+			} else if (this._maybeDispatchSessionsSaveKeybinding(e)) {
+				keyEvent.preventDefault();
 			}
 			this.isComposingGlobalContextKey.set(false);
 		}));
@@ -303,6 +306,20 @@ export class WorkbenchKeybindingService extends AbstractKeybindingService {
 		}));
 
 		return disposables;
+	}
+
+	private _maybeDispatchSessionsSaveKeybinding(event: KeyboardEvent): boolean {
+		if (!this.contextKeyService.contextMatchesRules(IsSessionsWindowContext)) {
+			return false;
+		}
+
+		if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's') {
+			return false;
+		}
+
+		const commandId = event.shiftKey ? 'workbench.action.files.saveAs' : 'workbench.action.files.save';
+		this._commandService.executeCommand(commandId).then(undefined, err => this.notificationService.warn(err));
+		return true;
 	}
 
 	public registerSchemaContribution(contribution: KeybindingsSchemaContribution): IDisposable {

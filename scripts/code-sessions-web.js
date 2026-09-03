@@ -148,7 +148,7 @@ ${importMapJson}
 			workspaceProvider: {
 				workspace: ${useMock
 			? `{ folderUri: URI.parse('mock-fs://mock-repo/mock-repo') }`
-			: 'undefined'},
+			: `{ folderUri: URI.parse('vscode-userdata:/sessions-workspace') }`},
 				open: async () => false,
 				payload: [['isSessionsWindow', 'true']],
 			},
@@ -173,4 +173,3 @@ function collectCssFiles(dir, prefix) {
 }
 
 main();
-

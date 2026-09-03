@@ -43,6 +43,7 @@ import { IDecorationData, IDecorationsProvider, IDecorationsService } from '../.
 import { Emitter } from '../../../../base/common/event.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { listErrorForeground } from '../../../../platform/theme/common/colorRegistry.js';
+import { isWeb } from '../../../../base/common/platform.js';
 
 export abstract class AbstractTextFileService extends Disposable implements ITextFileService {
 
@@ -70,6 +71,7 @@ export abstract class AbstractTextFileService extends Disposable implements ITex
 		@IPathService private readonly pathService: IPathService,
 		@IWorkingCopyFileService private readonly workingCopyFileService: IWorkingCopyFileService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
+		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@ILanguageService private readonly languageService: ILanguageService,
 		@ILogService protected readonly logService: ILogService,
 		@IElevatedFileService private readonly elevatedFileService: IElevatedFileService,
@@ -363,7 +365,10 @@ export abstract class AbstractTextFileService extends Disposable implements ITex
 
 				// Otherwise ask user
 				else {
-					targetUri = await this.fileDialogService.pickFileToSave(await this.suggestSavePath(resource), options?.availableFileSystems);
+					targetUri = await this.suggestSessionsWebSavePath(resource);
+					if (!targetUri) {
+						targetUri = await this.fileDialogService.pickFileToSave(await this.suggestSavePath(resource), options?.availableFileSystems);
+					}
 				}
 
 				// Save as if target provided
@@ -762,6 +767,28 @@ export abstract class AbstractTextFileService extends Disposable implements ITex
 		}
 
 		return false;
+	}
+
+	private async suggestSessionsWebSavePath(resource: URI): Promise<URI | undefined> {
+		if (!isWeb) {
+			return undefined;
+		}
+
+		const workspaceFolder = this.contextService.getWorkspaceFolder(resource) ?? this.contextService.getWorkspace().folders[0];
+		if (workspaceFolder?.uri.scheme !== Schemas.vscodeUserData) {
+			return undefined;
+		}
+
+		await this.fileService.createFolder(workspaceFolder.uri);
+
+		for (let counter = 1; counter < 1000; counter++) {
+			const candidate = joinPath(workspaceFolder.uri, `Untitled-${counter}`);
+			if (!await this.fileService.exists(candidate)) {
+				return candidate;
+			}
+		}
+
+		return undefined;
 	}
 
 	//#endregion

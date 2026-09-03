@@ -262,7 +262,7 @@ appendToCommandPalette({
 	id: SAVE_FILE_AS_COMMAND_ID,
 	title: SAVE_FILE_AS_LABEL,
 	category: Categories.File
-}, IsSessionsWindowContext.negate());
+});
 
 appendToCommandPalette({
 	id: NEW_FILE_COMMAND_ID,
@@ -281,7 +281,7 @@ appendToCommandPalette({
 	id: NEW_UNTITLED_FILE_COMMAND_ID,
 	title: NEW_UNTITLED_FILE_LABEL,
 	category: Categories.File
-}, IsSessionsWindowContext.negate());
+});
 
 // Menu registration - open editors
 

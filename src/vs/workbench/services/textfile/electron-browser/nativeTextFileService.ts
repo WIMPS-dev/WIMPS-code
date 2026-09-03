@@ -26,6 +26,7 @@ import { IElevatedFileService } from '../../files/common/elevatedFileService.js'
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Promises } from '../../../../base/common/async.js';
 import { IDecorationsService } from '../../decorations/common/decorations.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 
 export class NativeTextFileService extends AbstractTextFileService {
 
@@ -46,12 +47,13 @@ export class NativeTextFileService extends AbstractTextFileService {
 		@IPathService pathService: IPathService,
 		@IWorkingCopyFileService workingCopyFileService: IWorkingCopyFileService,
 		@IUriIdentityService uriIdentityService: IUriIdentityService,
+		@IWorkspaceContextService contextService: IWorkspaceContextService,
 		@ILanguageService languageService: ILanguageService,
 		@IElevatedFileService elevatedFileService: IElevatedFileService,
 		@ILogService logService: ILogService,
 		@IDecorationsService decorationsService: IDecorationsService
 	) {
-		super(fileService, untitledTextEditorService, lifecycleService, instantiationService, modelService, environmentService, dialogService, fileDialogService, textResourceConfigurationService, filesConfigurationService, codeEditorService, pathService, workingCopyFileService, uriIdentityService, languageService, logService, elevatedFileService, decorationsService);
+		super(fileService, untitledTextEditorService, lifecycleService, instantiationService, modelService, environmentService, dialogService, fileDialogService, textResourceConfigurationService, filesConfigurationService, codeEditorService, pathService, workingCopyFileService, uriIdentityService, contextService, languageService, logService, elevatedFileService, decorationsService);
 
 		this.environmentService = environmentService;
 

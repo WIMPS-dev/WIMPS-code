@@ -52,6 +52,7 @@ import { RemoveRootFolderAction } from '../../../browser/actions/workspaceAction
 import { OpenEditorsView } from './views/openEditorsView.js';
 import { ExplorerView } from './views/explorerView.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
+import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
 
 export const openWindowCommand = (accessor: ServicesAccessor, toOpen: IWindowOpenable[], options?: IOpenWindowOptions) => {
 	if (Array.isArray(toOpen)) {
@@ -688,6 +689,39 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	},
 	handler: async (accessor, args?: { languageId?: string; viewType?: string }) => {
 		const editorService = accessor.get(IEditorService);
+		const contextKeyService = accessor.get(IContextKeyService);
+
+		if (isWeb && contextKeyService.contextMatchesRules(IsSessionsWindowContext)) {
+			const fileService = accessor.get(IFileService);
+			const contextService = accessor.get(IWorkspaceContextService);
+			const workspaceFolder = contextService.getWorkspace().folders[0];
+
+			if (workspaceFolder) {
+				await fileService.createFolder(workspaceFolder.uri);
+
+				let resource: URI | undefined;
+				for (let counter = 1; counter < 1000; counter++) {
+					const candidate = joinPath(workspaceFolder.uri, `Untitled-${counter}`);
+					if (!await fileService.exists(candidate)) {
+						resource = candidate;
+						break;
+					}
+				}
+
+				if (resource) {
+					await fileService.createFile(resource);
+					await editorService.openEditor({
+						resource,
+						options: {
+							override: args?.viewType,
+							pinned: true
+						},
+						languageId: args?.languageId,
+					});
+					return;
+				}
+			}
+		}
 
 		await editorService.openEditor({
 			resource: undefined,

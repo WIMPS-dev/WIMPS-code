@@ -23,6 +23,7 @@ import { IUntitledTextEditorModelManager, IUntitledTextEditorService } from '../
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkingCopyFileService } from '../../workingCopy/common/workingCopyFileService.js';
 import { IDecorationsService } from '../../decorations/common/decorations.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 
 export class BrowserTextFileService extends AbstractTextFileService {
 
@@ -41,12 +42,13 @@ export class BrowserTextFileService extends AbstractTextFileService {
 		@IPathService pathService: IPathService,
 		@IWorkingCopyFileService workingCopyFileService: IWorkingCopyFileService,
 		@IUriIdentityService uriIdentityService: IUriIdentityService,
+		@IWorkspaceContextService contextService: IWorkspaceContextService,
 		@ILanguageService languageService: ILanguageService,
 		@IElevatedFileService elevatedFileService: IElevatedFileService,
 		@ILogService logService: ILogService,
 		@IDecorationsService decorationsService: IDecorationsService
 	) {
-		super(fileService, untitledTextEditorService, lifecycleService, instantiationService, modelService, environmentService, dialogService, fileDialogService, textResourceConfigurationService, filesConfigurationService, codeEditorService, pathService, workingCopyFileService, uriIdentityService, languageService, logService, elevatedFileService, decorationsService);
+		super(fileService, untitledTextEditorService, lifecycleService, instantiationService, modelService, environmentService, dialogService, fileDialogService, textResourceConfigurationService, filesConfigurationService, codeEditorService, pathService, workingCopyFileService, uriIdentityService, contextService, languageService, logService, elevatedFileService, decorationsService);
 
 		this.registerListeners();
 	}
