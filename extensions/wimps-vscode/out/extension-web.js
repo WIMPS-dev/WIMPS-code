@@ -88332,7 +88332,7 @@ var ARCHITECTURES = {
   mips: {
     id: "mips",
     label: "MIPS",
-    defaultFileName: "program.asm",
+    defaultFileName: "program.mips",
     dataStartAddress: 268500992,
     registers: MIPS_REGISTER_NAMES
   },
@@ -88514,7 +88514,7 @@ var DATA_START_ADDRESS = 268500992;
 var BITMAP_DEFAULT_WIDTH = 64;
 var BITMAP_DEFAULT_HEIGHT = 64;
 var BITMAP_MAX_PIXELS = 256 * 64;
-var MIPS_EXTENSIONS = /* @__PURE__ */ new Set([".asm", ".s"]);
+var MIPS_EXTENSIONS = /* @__PURE__ */ new Set([".mips", ".asm", ".s"]);
 var RISCV_EXTENSIONS = /* @__PURE__ */ new Set([".riscv", ".rv", ".rvasm"]);
 var X86_EXTENSIONS = /* @__PURE__ */ new Set([".x86"]);
 var ASM_EXTENSIONS = /* @__PURE__ */ new Set([...MIPS_EXTENSIONS, ...RISCV_EXTENSIONS, ...X86_EXTENSIONS]);
@@ -90401,7 +90401,7 @@ function renderInactiveView(kind) {
   return renderViewShell(viewTitle(kind), renderEmptyCard(
     "No assembly file active",
     "Open a MIPS, RISC-V, or x86 assembly file to show simulator state here.",
-    [".asm", ".s", ".riscv", ".x86"]
+    [".mips", ".asm", ".s", ".riscv", ".x86"]
   ));
 }
 function renderIdleView(title, detail, tags = []) {
