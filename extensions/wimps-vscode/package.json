@@ -223,6 +223,7 @@
           "mips"
         ],
         "extensions": [
+          ".mips",
           ".asm",
           ".s"
         ]

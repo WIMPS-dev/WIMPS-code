@@ -192,7 +192,7 @@ const ARCHITECTURES: Record<Architecture, ArchitectureDefinition> = {
   mips: {
     id: 'mips',
     label: 'MIPS',
-    defaultFileName: 'program.asm',
+    defaultFileName: 'program.mips',
     dataStartAddress: 0x10010000,
     registers: MIPS_REGISTER_NAMES,
   },
@@ -246,7 +246,7 @@ const DATA_START_ADDRESS = 0x10010000;
 const BITMAP_DEFAULT_WIDTH = 64;
 const BITMAP_DEFAULT_HEIGHT = 64;
 const BITMAP_MAX_PIXELS = 256 * 64;
-const MIPS_EXTENSIONS = new Set(['.asm', '.s']);
+const MIPS_EXTENSIONS = new Set(['.mips', '.asm', '.s']);
 const RISCV_EXTENSIONS = new Set(['.riscv', '.rv', '.rvasm']);
 const X86_EXTENSIONS = new Set(['.x86']);
 const ASM_EXTENSIONS = new Set([...MIPS_EXTENSIONS, ...RISCV_EXTENSIONS, ...X86_EXTENSIONS]);
@@ -2586,7 +2586,7 @@ function renderInactiveView(kind: WimpsStateViewProvider['kind']): string {
   return renderViewShell(viewTitle(kind), renderEmptyCard(
     'No assembly file active',
     'Open a MIPS, RISC-V, or x86 assembly file to show simulator state here.',
-    ['.asm', '.s', '.riscv', '.x86'],
+    ['.mips', '.asm', '.s', '.riscv', '.x86'],
   ));
 }
 

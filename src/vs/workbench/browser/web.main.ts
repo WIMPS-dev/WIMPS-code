@@ -663,7 +663,7 @@ export class BrowserMain extends Disposable {
 			return;
 		}
 
-		const starterFile = joinPath(workspace.uri, 'main.asm');
+			const starterFile = joinPath(workspace.uri, 'main.mips');
 		await fileService.createFile(starterFile, VSBuffer.fromString([
 			'# WIMPS browser workspace',
 			'# This file is saved in this browser.',
