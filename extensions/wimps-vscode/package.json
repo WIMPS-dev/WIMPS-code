@@ -223,8 +223,8 @@
           "mips"
         ],
         "extensions": [
-          ".asm",
           ".mips",
+          ".asm",
           ".s"
         ]
       },
@@ -299,6 +299,11 @@
           "command": "wimps.runCurrentFile",
           "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@92"
+        },
+        {
+          "command": "wimps.continueCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
+          "group": "navigation@92.5"
         },
         {
           "command": "wimps.stepCurrentFile",

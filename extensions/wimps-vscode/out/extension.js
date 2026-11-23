@@ -88419,7 +88419,7 @@ var ARCHITECTURES = {
   mips: {
     id: "mips",
     label: "MIPS",
-    defaultFileName: "program.asm",
+    defaultFileName: "program.mips",
     dataStartAddress: 268500992,
     registers: MIPS_REGISTER_NAMES
   },
@@ -88601,7 +88601,7 @@ var DATA_START_ADDRESS = 268500992;
 var BITMAP_DEFAULT_WIDTH = 64;
 var BITMAP_DEFAULT_HEIGHT = 64;
 var BITMAP_MAX_PIXELS = 256 * 64;
-var MIPS_EXTENSIONS = /* @__PURE__ */ new Set([".asm", ".s", ".mips"]);
+var MIPS_EXTENSIONS = /* @__PURE__ */ new Set([".mips", ".asm", ".s"]);
 var RISCV_EXTENSIONS = /* @__PURE__ */ new Set([".riscv", ".rv", ".rvasm"]);
 var X86_EXTENSIONS = /* @__PURE__ */ new Set([".x86"]);
 var ASM_EXTENSIONS = /* @__PURE__ */ new Set([...MIPS_EXTENSIONS, ...RISCV_EXTENSIONS, ...X86_EXTENSIONS]);
@@ -88841,6 +88841,7 @@ function ensureNodeBuiltinModuleShim() {
 var NativeAssemblySimulator = class {
   architecture = "mips";
   instance;
+  stoppedAtBreakpointPc;
   source = "";
   sourceLines = [];
   uri;
@@ -88915,6 +88916,7 @@ var NativeAssemblySimulator = class {
     if (!await this.prepareInputIfNeeded()) return "waiting";
     this.snapshotBeforeStep();
     this.trackCurrentInstruction();
+    this.stoppedAtBreakpointPc = void 0;
     const done = await this.stepInstance();
     if (done) this.appendProgramFinished();
     publishSimState(this.toState(done ? "terminated" : "running"));
@@ -88923,15 +88925,18 @@ var NativeAssemblySimulator = class {
   async runUntilBreak(breakpointLines, limit = RUN_LIMIT) {
     if (!this.assembled || !this.instance) return "not-assembled";
     if (breakpointLines.size === 0 && this.architecture !== "x86") {
+      this.stoppedAtBreakpointPc = void 0;
       return this.runFastUntilTerminated(limit);
     }
     this.clearUndoHistory();
     for (let i = 0; i < limit && !this.isTerminated(); i++) {
-      if (breakpointLines.size > 0 && this.isAtBreakpoint(breakpointLines)) {
+      if (breakpointLines.size > 0 && this.isAtBreakpoint(breakpointLines) && this.getPc() !== this.stoppedAtBreakpointPc) {
+        this.stoppedAtBreakpointPc = this.getPc();
         publishSimState(this.toState("running"));
         return "breakpoint";
       }
       if (!await this.prepareInputIfNeeded()) return "waiting";
+      this.stoppedAtBreakpointPc = void 0;
       this.trackCurrentInstruction();
       const steppedToTermination = await this.stepInstance();
       if (steppedToTermination) break;
@@ -88959,6 +88964,7 @@ var NativeAssemblySimulator = class {
     publishSimState(this.toState("idle"));
   }
   resetRuntimeState() {
+    this.stoppedAtBreakpointPc = void 0;
     this.output = "";
     this.x86OutputLineBuffer = "";
     this.x86OutputPassthroughLine = false;
@@ -89883,7 +89889,7 @@ async function revealWimpsTools() {
 }
 async function continueCurrentFileNative() {
   if (!await ensureCurrentFileAssembled()) return;
-  const result = await nativeSimulator.runUntilBreak(/* @__PURE__ */ new Set());
+  const result = await nativeSimulator.runUntilBreak(activeSourceBreakpointLines());
   await revealWimpsTools();
   outputChannel.show(true);
   if (result === "not-assembled") await vscode.window.showWarningMessage("Assemble the file before continuing.");
@@ -90062,7 +90068,7 @@ async function loadDocumentNative(document, action) {
   if (action === "run") {
     outputChannel.clear();
     lastOutputText = "";
-    await nativeSimulator.runUntilBreak(/* @__PURE__ */ new Set());
+    await nativeSimulator.runUntilBreak(activeSourceBreakpointLines());
     await revealWimpsTools();
     outputChannel.show(true);
   } else {
@@ -90280,7 +90286,18 @@ async function documentFromProgram(program) {
 function debugSourcePath(uri) {
   return uri.scheme === "file" ? uri.fsPath : uri.toString();
 }
+function activeSourceBreakpointLines() {
+  const uri = nativeSimulator.currentUri?.toString();
+  const lines = /* @__PURE__ */ new Set();
+  for (const breakpoint of vscode.debug.breakpoints) {
+    if (breakpoint instanceof vscode.SourceBreakpoint && breakpoint.enabled && breakpoint.location.uri.toString() === uri) {
+      lines.add(breakpoint.location.range.start.line + 1);
+    }
+  }
+  return lines;
+}
 function parseDebugProgramUri(program) {
+  if (/^[a-z]:[\\/]/i.test(program)) return vscode.Uri.file(program);
   if (/^[a-z][a-z0-9+.-]*:/i.test(program)) return vscode.Uri.parse(program);
   return vscode.Uri.file(program);
 }
@@ -90292,7 +90309,7 @@ var WimpsDebugAdapter = class {
   context;
   emitter = new vscode.EventEmitter();
   seq = 1;
-  breakpointLines = /* @__PURE__ */ new Set();
+  breakpointLines = /* @__PURE__ */ new Map();
   debugOutput = "";
   onDidSendMessage = this.emitter.event;
   dispose() {
@@ -90317,7 +90334,10 @@ var WimpsDebugAdapter = class {
         void this.launch(request);
         break;
       case "setBreakpoints":
-        this.breakpointLines = new Set((request.arguments?.breakpoints ?? []).map((breakpoint) => Number(breakpoint.line)));
+        if (typeof request.arguments?.source?.path === "string") {
+          const uri = parseDebugProgramUri(request.arguments.source.path);
+          this.breakpointLines.set(uri.toString(), new Set((request.arguments.breakpoints ?? []).map((breakpoint) => Number(breakpoint.line))));
+        }
         this.sendResponse(request, {
           breakpoints: (request.arguments?.breakpoints ?? []).map((breakpoint) => ({
             verified: true,
@@ -90404,7 +90424,8 @@ var WimpsDebugAdapter = class {
     else this.sendEvent("terminated");
   }
   async continueNative() {
-    const result = await nativeSimulator.runUntilBreak(this.breakpointLines);
+    const uri = nativeSimulator.currentUri?.toString();
+    const result = await nativeSimulator.runUntilBreak(uri && this.breakpointLines.get(uri) || /* @__PURE__ */ new Set());
     if (result === "terminated") this.sendEvent("terminated");
     else this.sendEvent("stopped", { reason: result === "breakpoint" ? "breakpoint" : "step", threadId: 1 });
   }
@@ -90548,7 +90569,7 @@ function renderInactiveView(kind) {
   return renderViewShell(viewTitle(kind), renderEmptyCard(
     "No assembly file active",
     "Open a MIPS, RISC-V, or x86 assembly file to show simulator state here.",
-    [".asm", ".s", ".riscv", ".x86"]
+    [".mips", ".asm", ".s", ".riscv", ".x86"]
   ));
 }
 function renderIdleView(title, detail, tags = []) {
