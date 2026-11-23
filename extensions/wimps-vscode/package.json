@@ -18,6 +18,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
+    "onView:wimps.examples",
     "onLanguage:mips",
     "onLanguage:riscv",
     "onLanguage:x86",
@@ -301,6 +302,11 @@
           "group": "navigation@92"
         },
         {
+          "command": "wimps.continueCurrentFile",
+          "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
+          "group": "navigation@92.5"
+        },
+        {
           "command": "wimps.stepCurrentFile",
           "when": "wimps.activeEditorIsAssembly || editorLangId == mips || editorLangId == riscv || editorLangId == x86",
           "group": "navigation@93"
@@ -518,6 +524,12 @@
       ]
     },
     "views": {
+      "explorer": [
+        {
+          "id": "wimps.examples",
+          "name": "Examples"
+        }
+      ],
       "wimpsRegisters": [
         {
           "id": "wimps.registers",

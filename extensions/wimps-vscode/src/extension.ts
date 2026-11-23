@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
+import { examples } from './examples';
 import type { JsMips, RegisterName as MipsRegisterName } from '@specy/mips';
 import type { JsRiscV, RegisterName as RiscvRegisterName } from '@specy/risc-v';
 
 let latestSimState: SimStateMessage | undefined;
+let executionLineDecoration: vscode.TextEditorDecorationType | undefined;
 let hasActiveAssemblyFile = false;
 let activeAssemblyFileName = '';
 type StateRefreshTarget = { refresh(): void };
@@ -502,6 +504,7 @@ function ensureNodeBuiltinModuleShim() {
 class NativeAssemblySimulator {
   private architecture: Architecture = 'mips';
   private instance: SimInstance | undefined;
+  private stoppedAtBreakpointPc: bigint | undefined;
   private source = '';
   private sourceLines: string[] = [];
   private uri: vscode.Uri | undefined;
@@ -586,6 +589,7 @@ class NativeAssemblySimulator {
     if (!await this.prepareInputIfNeeded()) return 'waiting';
     this.snapshotBeforeStep();
     this.trackCurrentInstruction();
+    this.stoppedAtBreakpointPc = undefined;
     const done = await this.stepInstance();
     if (done) this.appendProgramFinished();
     publishSimState(this.toState(done ? 'terminated' : 'running'));
@@ -596,16 +600,20 @@ class NativeAssemblySimulator {
     if (!this.assembled || !this.instance) return 'not-assembled';
 
     if (breakpointLines.size === 0 && this.architecture !== 'x86') {
+      this.stoppedAtBreakpointPc = undefined;
       return this.runFastUntilTerminated(limit);
     }
 
     this.clearUndoHistory();
     for (let i = 0; i < limit && !this.isTerminated(); i++) {
-      if (breakpointLines.size > 0 && this.isAtBreakpoint(breakpointLines)) {
+      if (breakpointLines.size > 0 && this.isAtBreakpoint(breakpointLines)
+        && this.getPc() !== this.stoppedAtBreakpointPc) {
+        this.stoppedAtBreakpointPc = this.getPc();
         publishSimState(this.toState('running'));
         return 'breakpoint';
       }
       if (!await this.prepareInputIfNeeded()) return 'waiting';
+      this.stoppedAtBreakpointPc = undefined;
       this.trackCurrentInstruction();
       const steppedToTermination = await this.stepInstance();
       if (steppedToTermination) break;
@@ -635,6 +643,7 @@ class NativeAssemblySimulator {
   }
 
   private resetRuntimeState() {
+    this.stoppedAtBreakpointPc = undefined;
     this.output = '';
     this.x86OutputLineBuffer = '';
     this.x86OutputPassthroughLine = false;
@@ -976,7 +985,7 @@ class NativeAssemblySimulator {
     this.output += `${this.output && !this.output.endsWith('\n') ? '\n' : ''}[stdin ${label}] ${value}\n`;
   }
 
-  private currentSourceLine(): number | null {
+  currentSourceLine(): number | null {
     if (!this.instance) return null;
     try {
       if (this.architecture === 'x86') {
@@ -1372,9 +1381,25 @@ const nativeSimulator = new NativeAssemblySimulator();
 
 function publishSimState(state: SimStateMessage) {
   latestSimState = state;
+  refreshExecutionLine();
   updateOutputChannel(state);
   for (const view of stateViews) view.refresh();
   for (const adapter of debugAdapters) adapter.onSimState(state);
+}
+
+function refreshExecutionLine() {
+  if (!executionLineDecoration) return;
+  const status = latestSimState?.status;
+  const line = status === 'assembled' || status === 'running' || status === 'waiting' || status === 'limit'
+    ? nativeSimulator.currentSourceLine()
+    : null;
+  for (const editor of vscode.window.visibleTextEditors) {
+    const range = line !== null && line >= 1 && line <= editor.document.lineCount
+      && nativeSimulator.isCurrentDocument(editor.document)
+      ? editor.document.lineAt(line - 1).range
+      : undefined;
+    editor.setDecorations(executionLineDecoration, range ? [range] : []);
+  }
 }
 
 function yieldToExtensionHost(): Promise<void> {
@@ -1437,8 +1462,58 @@ function updateOutputChannel(state: SimStateMessage) {
   lastOutputText = state.output;
 }
 
+async function openExample(example: typeof examples[number]) {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    const language = example.name.slice(example.name.lastIndexOf('.') + 1);
+    const document = await vscode.workspace.openTextDocument({ language, content: example.code });
+    await vscode.window.showTextDocument(document, { preview: false });
+    return;
+  }
+
+  const contents = new TextEncoder().encode(example.code);
+  for (let copy = 1; ; copy++) {
+    const extensionOffset = example.name.lastIndexOf('.');
+    const name = copy === 1 ? example.name : `${example.name.slice(0, extensionOffset)}-${copy}${example.name.slice(extensionOffset)}`;
+    const uri = vscode.Uri.joinPath(folder.uri, name);
+    try {
+      await vscode.workspace.fs.stat(uri);
+      continue;
+    } catch (error) {
+      if (!(error instanceof vscode.FileSystemError) || error.code !== 'FileNotFound') throw error;
+    }
+    const edit = new vscode.WorkspaceEdit();
+    edit.createFile(uri, { contents });
+    if (!await vscode.workspace.applyEdit(edit)) {
+      await vscode.window.showErrorMessage(`Could not create ${name} in the workspace.`);
+      return;
+    }
+    await vscode.window.showTextDocument(uri, { preview: false });
+    return;
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
   extensionContext = context;
+  executionLineDecoration = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    backgroundColor: new vscode.ThemeColor('editor.stackFrameHighlightBackground'),
+  });
+  context.subscriptions.push(executionLineDecoration);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('wimps.examples', {
+      getChildren: () => examples,
+      getTreeItem: example => {
+        const item = new vscode.TreeItem(example.name);
+        item.description = example.description;
+        item.tooltip = example.description;
+        item.iconPath = new vscode.ThemeIcon('file-code');
+        item.command = { command: 'wimps.openExample', title: 'Open Example', arguments: [example] };
+        return item;
+      },
+    } satisfies vscode.TreeDataProvider<typeof examples[number]>),
+    vscode.commands.registerCommand('wimps.openExample', openExample),
+  );
   diagnostics = vscode.languages.createDiagnosticCollection('wimps');
   outputChannel = vscode.window.createOutputChannel('WIMPS');
   architectureStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -1527,8 +1602,10 @@ export function activate(context: vscode.ExtensionContext) {
       scheduleActiveAssemblyContextRefresh();
     }),
     vscode.window.onDidChangeVisibleTextEditors(() => {
+      refreshExecutionLine();
       scheduleActiveAssemblyContextRefresh();
     }),
+    vscode.workspace.onDidChangeTextDocument(() => refreshExecutionLine()),
     vscode.workspace.onDidOpenTextDocument(() => {
       scheduleActiveAssemblyContextRefresh();
     }),
@@ -1582,7 +1659,7 @@ async function revealWimpsTools() {
 
 async function continueCurrentFileNative() {
   if (!await ensureCurrentFileAssembled()) return;
-  const result = await nativeSimulator.runUntilBreak(new Set());
+  const result = await nativeSimulator.runUntilBreak(activeSourceBreakpointLines());
   await revealWimpsTools();
   outputChannel.show(true);
   if (result === 'not-assembled') await vscode.window.showWarningMessage('Assemble the file before continuing.');
@@ -1791,7 +1868,7 @@ async function loadDocumentNative(document: vscode.TextDocument, action: RunActi
   if (action === 'run') {
     outputChannel.clear();
     lastOutputText = '';
-    await nativeSimulator.runUntilBreak(new Set());
+    await nativeSimulator.runUntilBreak(activeSourceBreakpointLines());
     await revealWimpsTools();
     outputChannel.show(true);
   } else {
@@ -2047,7 +2124,19 @@ function debugSourcePath(uri: vscode.Uri): string {
   return uri.scheme === 'file' ? uri.fsPath : uri.toString();
 }
 
+function activeSourceBreakpointLines(): Set<number> {
+  const uri = nativeSimulator.currentUri?.toString();
+  const lines = new Set<number>();
+  for (const breakpoint of vscode.debug.breakpoints) {
+    if (breakpoint instanceof vscode.SourceBreakpoint && breakpoint.enabled && breakpoint.location.uri.toString() === uri) {
+      lines.add(breakpoint.location.range.start.line + 1);
+    }
+  }
+  return lines;
+}
+
 function parseDebugProgramUri(program: string): vscode.Uri {
+  if (/^[a-z]:[\\/]/i.test(program)) return vscode.Uri.file(program);
   if (/^[a-z][a-z0-9+.-]*:/i.test(program)) return vscode.Uri.parse(program);
   return vscode.Uri.file(program);
 }
@@ -2066,7 +2155,7 @@ type DapMessage = {
 class WimpsDebugAdapter implements vscode.DebugAdapter {
   private readonly emitter = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
   private seq = 1;
-  private breakpointLines = new Set<number>();
+  private breakpointLines = new Map<string, Set<number>>();
   private debugOutput = '';
 
   readonly onDidSendMessage = this.emitter.event;
@@ -2099,7 +2188,10 @@ class WimpsDebugAdapter implements vscode.DebugAdapter {
         void this.launch(request);
         break;
       case 'setBreakpoints':
-        this.breakpointLines = new Set((request.arguments?.breakpoints ?? []).map((breakpoint: any) => Number(breakpoint.line)));
+        if (typeof request.arguments?.source?.path === 'string') {
+          const uri = parseDebugProgramUri(request.arguments.source.path);
+          this.breakpointLines.set(uri.toString(), new Set((request.arguments.breakpoints ?? []).map((breakpoint: any) => Number(breakpoint.line))));
+        }
         this.sendResponse(request, {
           breakpoints: (request.arguments?.breakpoints ?? []).map((breakpoint: any) => ({
             verified: true,
@@ -2191,7 +2283,8 @@ class WimpsDebugAdapter implements vscode.DebugAdapter {
   }
 
   private async continueNative() {
-    const result = await nativeSimulator.runUntilBreak(this.breakpointLines);
+    const uri = nativeSimulator.currentUri?.toString();
+    const result = await nativeSimulator.runUntilBreak((uri && this.breakpointLines.get(uri)) || new Set<number>());
     if (result === 'terminated') this.sendEvent('terminated');
     else this.sendEvent('stopped', { reason: result === 'breakpoint' ? 'breakpoint' : 'step', threadId: 1 });
   }
