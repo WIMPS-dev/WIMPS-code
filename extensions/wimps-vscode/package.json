@@ -17,6 +17,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
+    "onView:wimps.examples",
     "onLanguage:mips",
     "onLanguage:riscv",
     "onLanguage:x86",
@@ -222,8 +223,8 @@
           "mips"
         ],
         "extensions": [
-          ".mips",
           ".asm",
+          ".mips",
           ".s"
         ]
       },
@@ -517,6 +518,12 @@
       ]
     },
     "views": {
+      "explorer": [
+        {
+          "id": "wimps.examples",
+          "name": "Examples"
+        }
+      ],
       "wimpsRegisters": [
         {
           "id": "wimps.registers",

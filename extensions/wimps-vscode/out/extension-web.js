@@ -88208,7 +88208,39 @@ __export(extension_exports, {
 });
 module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
+
+// src/examples.ts
+var examples = [
+  {
+    "name": "hello.mips",
+    "description": "Hello, World!",
+    "code": '# Hello, World!\n.data\nmsg: .asciiz "Hello, World!\\n"\n\n.text\nmain:\n    li   $v0, 4\n    la   $a0, msg\n    syscall\n\n    li   $v0, 10\n    syscall'
+  },
+  {
+    "name": "quadhex.mips",
+    "description": "QuadHex \u2014 like FizzBuzz, but for 4, 6, and 24",
+    "code": '# QuadHex \u2014 like FizzBuzz, but for 4, 6, and 24\n.data\nstr_quad:    .asciiz "Quad"\nstr_hex:     .asciiz "Hex"\nstr_quadhex: .asciiz "QuadHex"\nstr_newline: .asciiz "\\n"\n\n.text\nmain:\n    li   $t0, 1          # counter\n    li   $t1, 40         # limit\n\nloop:\n    bgt  $t0, $t1, done\n\n    # divisible by 24?\n    li   $t2, 24\n    div  $t0, $t2\n    mfhi $t3\n    beqz $t3, print_quadhex\n\n    # divisible by 6?\n    li   $t2, 6\n    div  $t0, $t2\n    mfhi $t3\n    beqz $t3, print_hex\n\n    # divisible by 4?\n    li   $t2, 4\n    div  $t0, $t2\n    mfhi $t3\n    beqz $t3, print_quad\n\n    # otherwise: print the number\n    li   $v0, 1\n    move $a0, $t0\n    syscall\n    j    next\n\nprint_quadhex:\n    li   $v0, 4\n    la   $a0, str_quadhex\n    syscall\n    j    next\n\nprint_hex:\n    li   $v0, 4\n    la   $a0, str_hex\n    syscall\n    j    next\n\nprint_quad:\n    li   $v0, 4\n    la   $a0, str_quad\n    syscall\n\nnext:\n    li   $v0, 4\n    la   $a0, str_newline\n    syscall\n    addi $t0, $t0, 1\n    j    loop\n\ndone:\n    li   $v0, 10\n    syscall'
+  },
+  {
+    "name": "smile.mips",
+    "description": "Smiley face \u2014 open the Bitmap tab (64\xD764, scale 4)",
+    "code": "# smile.mips \u2014 smiley face drawn pixel by pixel\n# Open the Bitmap tab, set 64x64 at scale 4, then run.\n# Pixel format: 0x00RRGGBB stored at base + (y*64 + x)*4\n.text\nmain:\n    li   $s0, 0x10010000   # bitmap base address\n\n    li   $t0, 0            # y = 0\nyloop:\n    li   $t1, 0            # x = 0\nxloop:\n    # Squared distance from face center (32, 32)\n    addi $t2, $t0, -32\n    addi $t3, $t1, -32\n    mul  $t4, $t2, $t2     # dy^2\n    mul  $t5, $t3, $t3     # dx^2\n    add  $t6, $t4, $t5     # face r^2\n\n    # Default: steel-blue background\n    li   $s1, 0x006699CC\n    li   $t9, 576          # 24^2 \u2014 face outer edge\n    bgt  $t6, $t9, write\n\n    # Dark outline ring: 22^2 < r^2 <= 24^2\n    li   $s1, 0x00222222\n    li   $t9, 484          # 22^2\n    bgt  $t6, $t9, write\n\n    # Yellow face fill\n    li   $s1, 0x00FFD700\n\n    # Left eye: center (24, 24), radius 4\n    addi $t2, $t0, -24\n    addi $t3, $t1, -24\n    mul  $t4, $t2, $t2\n    mul  $t5, $t3, $t3\n    add  $t7, $t4, $t5\n    li   $t9, 16\n    ble  $t7, $t9, feature\n\n    # Right eye: center (40, 24), radius 4\n    addi $t2, $t0, -24\n    addi $t3, $t1, -40\n    mul  $t4, $t2, $t2\n    mul  $t5, $t3, $t3\n    add  $t7, $t4, $t5\n    ble  $t7, $t9, feature\n\n    # Smile arc: center (32, 36), ring r=10..13, lower arc only\n    addi $t2, $t0, -36\n    addi $t3, $t1, -32\n    mul  $t4, $t2, $t2\n    mul  $t5, $t3, $t3\n    add  $t7, $t4, $t5\n    blt  $t0, 36, write\n    li   $t9, 100\n    blt  $t7, $t9, write\n    li   $t9, 169\n    bgt  $t7, $t9, write\nfeature:\n    li   $s1, 0x00222222\n\nwrite:\n    sll  $t2, $t0, 6       # y * 64\n    add  $t2, $t2, $t1     # + x\n    sll  $t2, $t2, 2       # * 4\n    add  $t2, $t2, $s0     # + base\n    sw   $s1, 0($t2)\n\n    addi $t1, $t1, 1\n    slti $t9, $t1, 64\n    bnez $t9, xloop\n\n    addi $t0, $t0, 1\n    slti $t9, $t0, 64\n    bnez $t9, yloop\n\n    li   $v0, 10\n    syscall"
+  },
+  {
+    "name": "hello.riscv",
+    "description": "RISC-V Hello, World!",
+    "code": '.data\nmsg: .asciz "Hello, RISC-V!\\n"\n\n.text\nmain:\n    li a7, 4\n    la a0, msg\n    ecall\n\n    li a7, 10\n    ecall'
+  },
+  {
+    "name": "exit.x86",
+    "description": "x86 NASM exit program",
+    "code": "global _start\n\nsection .text\n_start:\n    mov rax, 60\n    xor rdi, rdi\n    syscall"
+  }
+];
+
+// src/extension.ts
 var latestSimState;
+var executionLineDecoration;
 var hasActiveAssemblyFile = false;
 var activeAssemblyFileName = "";
 var stateViews = /* @__PURE__ */ new Set();
@@ -88332,7 +88364,7 @@ var ARCHITECTURES = {
   mips: {
     id: "mips",
     label: "MIPS",
-    defaultFileName: "program.mips",
+    defaultFileName: "program.asm",
     dataStartAddress: 268500992,
     registers: MIPS_REGISTER_NAMES
   },
@@ -88514,7 +88546,7 @@ var DATA_START_ADDRESS = 268500992;
 var BITMAP_DEFAULT_WIDTH = 64;
 var BITMAP_DEFAULT_HEIGHT = 64;
 var BITMAP_MAX_PIXELS = 256 * 64;
-var MIPS_EXTENSIONS = /* @__PURE__ */ new Set([".mips", ".asm", ".s"]);
+var MIPS_EXTENSIONS = /* @__PURE__ */ new Set([".asm", ".s", ".mips"]);
 var RISCV_EXTENSIONS = /* @__PURE__ */ new Set([".riscv", ".rv", ".rvasm"]);
 var X86_EXTENSIONS = /* @__PURE__ */ new Set([".x86"]);
 var ASM_EXTENSIONS = /* @__PURE__ */ new Set([...MIPS_EXTENSIONS, ...RISCV_EXTENSIONS, ...X86_EXTENSIONS]);
@@ -89549,9 +89581,19 @@ var NativeAssemblySimulator = class {
 var nativeSimulator = new NativeAssemblySimulator();
 function publishSimState(state) {
   latestSimState = state;
+  refreshExecutionLine();
   updateOutputChannel(state);
   for (const view of stateViews) view.refresh();
   for (const adapter of debugAdapters) adapter.onSimState(state);
+}
+function refreshExecutionLine() {
+  if (!executionLineDecoration) return;
+  const status = latestSimState?.status;
+  const line = status === "assembled" || status === "running" || status === "waiting" || status === "limit" ? nativeSimulator.currentSourceLine() : null;
+  for (const editor of vscode.window.visibleTextEditors) {
+    const range = line !== null && line >= 1 && line <= editor.document.lineCount && nativeSimulator.isCurrentDocument(editor.document) ? editor.document.lineAt(line - 1).range : void 0;
+    editor.setDecorations(executionLineDecoration, range ? [range] : []);
+  }
 }
 function yieldToExtensionHost() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -89598,8 +89640,56 @@ function updateOutputChannel(state) {
   }
   lastOutputText = state.output;
 }
+async function openExample(example) {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    const language = example.name.slice(example.name.lastIndexOf(".") + 1);
+    const document = await vscode.workspace.openTextDocument({ language, content: example.code });
+    await vscode.window.showTextDocument(document, { preview: false });
+    return;
+  }
+  const contents = new TextEncoder().encode(example.code);
+  for (let copy = 1; ; copy++) {
+    const extensionOffset = example.name.lastIndexOf(".");
+    const name = copy === 1 ? example.name : `${example.name.slice(0, extensionOffset)}-${copy}${example.name.slice(extensionOffset)}`;
+    const uri = vscode.Uri.joinPath(folder.uri, name);
+    try {
+      await vscode.workspace.fs.stat(uri);
+      continue;
+    } catch (error) {
+      if (!(error instanceof vscode.FileSystemError) || error.code !== "FileNotFound") throw error;
+    }
+    const edit = new vscode.WorkspaceEdit();
+    edit.createFile(uri, { contents });
+    if (!await vscode.workspace.applyEdit(edit)) {
+      await vscode.window.showErrorMessage(`Could not create ${name} in the workspace.`);
+      return;
+    }
+    await vscode.window.showTextDocument(uri, { preview: false });
+    return;
+  }
+}
 function activate(context) {
   extensionContext = context;
+  executionLineDecoration = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    backgroundColor: new vscode.ThemeColor("editor.stackFrameHighlightBackground")
+  });
+  context.subscriptions.push(executionLineDecoration);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider("wimps.examples", {
+      getChildren: () => examples,
+      getTreeItem: (example) => {
+        const item = new vscode.TreeItem(example.name);
+        item.description = example.description;
+        item.tooltip = example.description;
+        item.iconPath = new vscode.ThemeIcon("file-code");
+        item.command = { command: "wimps.openExample", title: "Open Example", arguments: [example] };
+        return item;
+      }
+    }),
+    vscode.commands.registerCommand("wimps.openExample", openExample)
+  );
   diagnostics = vscode.languages.createDiagnosticCollection("wimps");
   outputChannel = vscode.window.createOutputChannel("WIMPS");
   architectureStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -89688,8 +89778,10 @@ function activate(context) {
       scheduleActiveAssemblyContextRefresh();
     }),
     vscode.window.onDidChangeVisibleTextEditors(() => {
+      refreshExecutionLine();
       scheduleActiveAssemblyContextRefresh();
     }),
+    vscode.workspace.onDidChangeTextDocument(() => refreshExecutionLine()),
     vscode.workspace.onDidOpenTextDocument(() => {
       scheduleActiveAssemblyContextRefresh();
     }),
@@ -90401,7 +90493,7 @@ function renderInactiveView(kind) {
   return renderViewShell(viewTitle(kind), renderEmptyCard(
     "No assembly file active",
     "Open a MIPS, RISC-V, or x86 assembly file to show simulator state here.",
-    [".mips", ".asm", ".s", ".riscv", ".x86"]
+    [".asm", ".s", ".riscv", ".x86"]
   ));
 }
 function renderIdleView(title, detail, tags = []) {
