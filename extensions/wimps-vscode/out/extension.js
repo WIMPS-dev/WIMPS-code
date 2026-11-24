@@ -88787,6 +88787,19 @@ function analyzeCache(accesses, config) {
 function emptyStats() {
   return { arithmetic: 0, logic: 0, memory: 0, branch: 0, jump: 0, syscall: 0, other: 0 };
 }
+function x86InstructionText(code) {
+  return (code.match(/<td\s+class=['"]str['"]>([^<]*)<\/td>/i)?.[1] ?? code).trim();
+}
+function categorizeX86Instruction(instruction) {
+  const [mnemonic = "", ...operands] = instruction.toLowerCase().replace(/^(?:(?:lock|rep|repe|repz|repne|repnz)\s+)+/, "").split(/\s+/);
+  if (/^(?:syscall|sysenter|int|int3)$/.test(mnemonic)) return "syscall";
+  if (/^(?:jmp|call|ret|retf|iret[qd]?)$/.test(mnemonic)) return "jump";
+  if (/^(?:j[a-z]+|loop(?:e|ne|z|nz)?)$/.test(mnemonic)) return "branch";
+  if (/^(?:add|adc|sub|sbb|inc|dec|neg|cmp|mul|imul|div|idiv|lea)$/.test(mnemonic)) return "arithmetic";
+  if (/^(?:and|or|xor|not|test|shl|shr|sal|sar|shld|shrd|rol|ror|rcl|rcr)$/.test(mnemonic)) return "logic";
+  if (operands.join(" ").includes("[") || /^(?:push|pop|pushf[qwd]?|popf[qwd]?|movs[bwdq]?|stos[bwdq]?|lods[bwdq]?|scas[bwdq]?|cmps[bwdq]?|enter|leave)$/.test(mnemonic)) return "memory";
+  return "other";
+}
 function categorizeInstruction(mnemonic) {
   if (mnemonic === "syscall" || mnemonic === "ecall" || mnemonic === "ebreak" || mnemonic === "break") return "syscall";
   if (ARITHMETIC_SET.has(mnemonic)) return "arithmetic";
@@ -89296,7 +89309,8 @@ var NativeAssemblySimulator = class {
       if (!stmt) return;
       const mnemonic = stmt?.assemblyStatement?.trimStart().split(/[\s,\t(]/)[0]?.toLowerCase();
       if (!mnemonic) return;
-      this.stats[categorizeInstruction(mnemonic)]++;
+      const category = this.architecture === "x86" ? categorizeX86Instruction(stmt.assemblyStatement) : categorizeInstruction(mnemonic);
+      this.stats[category]++;
       this.totalInstructions++;
       this.recordMemoryAccess({ address: stmt.address >>> 0, line: stmt.sourceLine ?? null, op: "instruction" });
       const memoryAccess = this.estimateMemoryAccess(stmt.assemblyStatement);
@@ -89387,7 +89401,7 @@ var NativeAssemblySimulator = class {
       return {
         address: Number(instruction.address & 0xffffffffn) >>> 0,
         sourceLine: instruction.lineNumber + 1,
-        assemblyStatement: instruction.code
+        assemblyStatement: x86InstructionText(instruction.code)
       };
     }
     const instance = this.instance;
@@ -89503,7 +89517,7 @@ var NativeAssemblySimulator = class {
             address: `0x${address.toString(16).padStart(8, "0").toUpperCase()}`,
             binary: 0,
             machine: Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" "),
-            assembly: instruction.code,
+            assembly: x86InstructionText(instruction.code),
             sourceLine: index + 1,
             source
           });
