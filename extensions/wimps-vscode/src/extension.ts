@@ -170,7 +170,7 @@ type X86Emulator = {
   canUndo(): boolean;
   writeMemoryBytes(address: bigint, data: Uint8Array): void;
   readMemoryBytes(address: bigint, length: bigint): Uint8Array;
-  runtime: Pick<import('@specy/x86', { with: { 'resolution-mode': 'import' } }).BlinkRuntime, 'getAddressesForSourceLine' | 'getInstructionAt'>;
+  runtime: Pick<import('@specy/x86', { with: { 'resolution-mode': 'import' } }).BlinkRuntime, 'getAddressesForSourceLine' | 'getInstructionAt' | 'getLastStepInfo'>;
   getStatus(): number;
   getNextInstruction(): { address: bigint; lineNumber: number; code: string } | null;
   getPc(): bigint;
@@ -411,7 +411,7 @@ function analyzeCache(accesses: Omit<CacheAccess, 'hit'>[], config: CacheConfig)
   const sets = Math.max(1, Math.floor((config.cacheBytes || 1024) / blockBytes / associativity));
   const cache = Array.from({ length: sets }, () => [] as number[]);
   const analyzed = accesses.map(access => {
-    const block = Math.floor((access.address >>> 0) / blockBytes);
+    const block = Math.floor(access.address / blockBytes);
     const setIndex = block % sets;
     const set = cache[setIndex];
     const existing = set.indexOf(block);
@@ -750,7 +750,16 @@ class NativeAssemblySimulator {
 
   private async stepInstance(): Promise<boolean> {
     if (this.architecture === 'x86') {
-      const result = await (this.instance as X86Emulator).step();
+      const emulator = this.instance as X86Emulator;
+      const instruction = emulator.getNextInstruction();
+      const reads = instruction ? this.x86ReadAddresses(emulator, x86InstructionText(instruction.code)) : [];
+      const result = await emulator.step();
+      const trace = emulator.runtime.getLastStepInfo();
+      if (trace.valid && instruction?.address === trace.pcBefore) {
+        const line = instruction.lineNumber >= 0 ? instruction.lineNumber + 1 : null;
+        for (const address of reads) this.recordX86DataAccess(address, line, 'read');
+        for (const write of trace.memoryWrites) this.recordX86DataAccess(write.address, line, 'write');
+      }
       return result.terminated;
     }
 
@@ -1047,7 +1056,8 @@ class NativeAssemblySimulator {
         : categorizeInstruction(mnemonic);
       this.stats[category]++;
       this.totalInstructions++;
-      this.recordMemoryAccess({ address: stmt.address >>> 0, line: stmt.sourceLine ?? null, op: 'instruction' });
+      this.recordMemoryAccess({ address: stmt.address, line: stmt.sourceLine ?? null, op: 'instruction' });
+      if (this.architecture === 'x86') return;
       const memoryAccess = this.estimateMemoryAccess(stmt.assemblyStatement);
       if (memoryAccess) this.recordMemoryAccess({ ...memoryAccess, line: stmt.sourceLine ?? null });
     } catch {}
@@ -1150,7 +1160,7 @@ class NativeAssemblySimulator {
       const instruction = (this.instance as X86Emulator).getNextInstruction();
       if (!instruction) return null;
       return {
-        address: Number(instruction.address & 0xffffffffn) >>> 0,
+        address: Number(instruction.address),
         sourceLine: instruction.lineNumber + 1,
         assemblyStatement: x86InstructionText(instruction.code),
       };
@@ -1173,6 +1183,40 @@ class NativeAssemblySimulator {
     const offset = parseWordLiteral(match[1] || '0') ?? 0;
     const base = this.getRegisterValue(resolveRegisterName(match[2], this.architecture));
     return { address: (base + offset) >>> 0, op: mnemonic.startsWith('s') || mnemonic.startsWith('fs') ? 'write' : 'read' };
+  }
+
+  private x86ReadAddresses(emulator: X86Emulator, assembly: string): bigint[] {
+    const [mnemonic, ...parts] = assembly.toLowerCase().replace(/^lock\s+/, '').split(/\s+/);
+    const addresses: bigint[] = [];
+    if (/^(?:pop|popf[qwd]?|ret)$/.test(mnemonic)) addresses.push(emulator.getSp());
+    if (!/^(?:mov|movzx|movsx|movsxd|push|call|jmp|add|adc|sub|sbb|inc|dec|neg|cmp|test|and|or|xor|not|mul|imul|div|idiv|xchg)$/.test(mnemonic)) return addresses;
+    const operands = parts.join(' ').split(',');
+    for (const [index, operand] of operands.entries()) {
+      if (index === 0 && /^(?:mov|movzx|movsx|movsxd)$/.test(mnemonic)) continue;
+      const expression = operand.match(/\[([^\]]+)\]/)?.[1]?.replace(/\s/g, '');
+      if (!expression || /\b[fg]s:/.test(operand)) continue;
+      // Blink prints the absolute target in its RIP-relative operand.
+      const terms = expression.replace(/^rip\+/, '').match(/[+-]?[^+-]+/g) ?? [];
+      let address = 0n;
+      let resolved = terms.length > 0;
+      for (const term of terms) {
+        const register = term.match(/^([+-]?)([a-z][a-z0-9]*)(?:\*([1248]))?$/);
+        if (register && X86_REGISTER_NAMES.includes(register[2] as X86RegisterName)) {
+          address += (register[1] === '-' ? -1n : 1n) * emulator.getRegisterValue(register[2] as X86RegisterName) * BigInt(register[3] ?? 1);
+        } else {
+          const offset = parseIntegerInput(term);
+          if (offset === null) { resolved = false; break; }
+          address += offset;
+        }
+      }
+      if (resolved) addresses.push(BigInt.asUintN(64, address));
+    }
+    return addresses;
+  }
+
+  private recordX86DataAccess(address: bigint, line: number | null, op: 'read' | 'write') {
+    const numericAddress = Number(address);
+    if (Number.isSafeInteger(numericAddress)) this.recordMemoryAccess({ address: numericAddress, line, op });
   }
 
   private getRegisterValue(name: string): number {
@@ -2562,7 +2606,7 @@ class WimpsStateTreeProvider implements vscode.TreeDataProvider<WimpsTreeItem>, 
         icon: new vscode.ThemeIcon('pulse'),
       }),
       ...state.cache.accesses.slice(-100).map(access => new WimpsTreeItem(access.hit ? 'hit' : 'miss', {
-        description: `${formatWordValue(access.address)} ${access.op}${access.line ? ` line ${access.line}` : ''}`,
+        description: `0x${access.address.toString(16).padStart(8, '0').toUpperCase()} ${access.op}${access.line ? ` line ${access.line}` : ''}`,
         icon: new vscode.ThemeIcon(access.hit ? 'check' : 'close'),
       })),
     ];
