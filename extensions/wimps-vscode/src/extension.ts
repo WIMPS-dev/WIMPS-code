@@ -687,11 +687,11 @@ class NativeAssemblySimulator {
       if (this.syscallAddresses.has(this.currentProgramCounter()) && !await this.prepareInputAtCurrentSyscall()) {
         return 'waiting';
       }
+      this.trackCurrentInstruction();
       instance.step();
       if (executed > 0 && executed % RUN_YIELD_INTERVAL === 0) await yieldToExtensionHost();
     }
 
-    this.totalInstructions += executed;
     const done = instance.terminated;
     if (done) {
       this.appendProgramFinished();
