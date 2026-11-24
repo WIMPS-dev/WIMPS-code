@@ -88704,7 +88704,7 @@ function analyzeCache(accesses, config) {
   const sets = Math.max(1, Math.floor((config.cacheBytes || 1024) / blockBytes / associativity));
   const cache = Array.from({ length: sets }, () => []);
   const analyzed = accesses.map((access) => {
-    const block = Math.floor((access.address >>> 0) / blockBytes);
+    const block = Math.floor(access.address / blockBytes);
     const setIndex = block % sets;
     const set = cache[setIndex];
     const existing = set.indexOf(block);
@@ -88998,7 +88998,16 @@ var NativeAssemblySimulator = class {
   }
   async stepInstance() {
     if (this.architecture === "x86") {
-      const result = await this.instance.step();
+      const emulator = this.instance;
+      const instruction = emulator.getNextInstruction();
+      const reads = instruction ? this.x86ReadAddresses(emulator, x86InstructionText(instruction.code)) : [];
+      const result = await emulator.step();
+      const trace = emulator.runtime.getLastStepInfo();
+      if (trace.valid && instruction?.address === trace.pcBefore) {
+        const line = instruction.lineNumber >= 0 ? instruction.lineNumber + 1 : null;
+        for (const address of reads) this.recordX86DataAccess(address, line, "read");
+        for (const write of trace.memoryWrites) this.recordX86DataAccess(write.address, line, "write");
+      }
       return result.terminated;
     }
     this.instance.step();
@@ -89257,7 +89266,8 @@ var NativeAssemblySimulator = class {
       const category = this.architecture === "x86" ? categorizeX86Instruction(stmt.assemblyStatement) : categorizeInstruction(mnemonic);
       this.stats[category]++;
       this.totalInstructions++;
-      this.recordMemoryAccess({ address: stmt.address >>> 0, line: stmt.sourceLine ?? null, op: "instruction" });
+      this.recordMemoryAccess({ address: stmt.address, line: stmt.sourceLine ?? null, op: "instruction" });
+      if (this.architecture === "x86") return;
       const memoryAccess = this.estimateMemoryAccess(stmt.assemblyStatement);
       if (memoryAccess) this.recordMemoryAccess({ ...memoryAccess, line: stmt.sourceLine ?? null });
     } catch {
@@ -89344,7 +89354,7 @@ var NativeAssemblySimulator = class {
       const instruction = this.instance.getNextInstruction();
       if (!instruction) return null;
       return {
-        address: Number(instruction.address & 0xffffffffn) >>> 0,
+        address: Number(instruction.address),
         sourceLine: instruction.lineNumber + 1,
         assemblyStatement: x86InstructionText(instruction.code)
       };
@@ -89365,6 +89375,40 @@ var NativeAssemblySimulator = class {
     const offset = parseWordLiteral(match[1] || "0") ?? 0;
     const base = this.getRegisterValue(resolveRegisterName(match[2], this.architecture));
     return { address: base + offset >>> 0, op: mnemonic.startsWith("s") || mnemonic.startsWith("fs") ? "write" : "read" };
+  }
+  x86ReadAddresses(emulator, assembly) {
+    const [mnemonic, ...parts] = assembly.toLowerCase().replace(/^lock\s+/, "").split(/\s+/);
+    const addresses = [];
+    if (/^(?:pop|popf[qwd]?|ret)$/.test(mnemonic)) addresses.push(emulator.getSp());
+    if (!/^(?:mov|movzx|movsx|movsxd|push|call|jmp|add|adc|sub|sbb|inc|dec|neg|cmp|test|and|or|xor|not|mul|imul|div|idiv|xchg)$/.test(mnemonic)) return addresses;
+    const operands = parts.join(" ").split(",");
+    for (const [index, operand] of operands.entries()) {
+      if (index === 0 && /^(?:mov|movzx|movsx|movsxd)$/.test(mnemonic)) continue;
+      const expression = operand.match(/\[([^\]]+)\]/)?.[1]?.replace(/\s/g, "");
+      if (!expression || /\b[fg]s:/.test(operand)) continue;
+      const terms = expression.replace(/^rip\+/, "").match(/[+-]?[^+-]+/g) ?? [];
+      let address = 0n;
+      let resolved = terms.length > 0;
+      for (const term of terms) {
+        const register = term.match(/^([+-]?)([a-z][a-z0-9]*)(?:\*([1248]))?$/);
+        if (register && X86_REGISTER_NAMES2.includes(register[2])) {
+          address += (register[1] === "-" ? -1n : 1n) * emulator.getRegisterValue(register[2]) * BigInt(register[3] ?? 1);
+        } else {
+          const offset = parseIntegerInput(term);
+          if (offset === null) {
+            resolved = false;
+            break;
+          }
+          address += offset;
+        }
+      }
+      if (resolved) addresses.push(BigInt.asUintN(64, address));
+    }
+    return addresses;
+  }
+  recordX86DataAccess(address, line, op) {
+    const numericAddress = Number(address);
+    if (Number.isSafeInteger(numericAddress)) this.recordMemoryAccess({ address: numericAddress, line, op });
   }
   getRegisterValue(name) {
     if (!this.instance) return 0;
