@@ -88848,6 +88848,7 @@ var NativeAssemblySimulator = class {
   documentVersion = -1;
   fileName = "No file";
   output = "";
+  x86ProgramRows = [];
   x86OutputLineBuffer = "";
   x86OutputPassthroughLine = false;
   assembled = false;
@@ -88964,6 +88965,7 @@ var NativeAssemblySimulator = class {
     publishSimState(this.toState("idle"));
   }
   resetRuntimeState() {
+    this.x86ProgramRows = [];
     this.stoppedAtBreakpointPc = void 0;
     this.output = "";
     this.x86OutputLineBuffer = "";
@@ -89151,9 +89153,9 @@ var NativeAssemblySimulator = class {
     };
   }
   toState(status) {
-    let pc = 0;
+    let pc = 0n;
     try {
-      pc = Number(this.getPc() & 0xffffffffn) >>> 0;
+      pc = this.getPc();
     } catch {
     }
     return {
@@ -89469,14 +89471,7 @@ var NativeAssemblySimulator = class {
     if (!this.instance) return [];
     try {
       if (this.architecture === "x86") {
-        return this.instance.getCompiledCode().code.split("\n").map((line, index) => ({
-          address: "",
-          binary: 0,
-          machine: "",
-          assembly: line.trim(),
-          sourceLine: index + 1,
-          source: this.sourceLines[index] ?? line
-        })).filter((row) => row.assembly);
+        return this.x86ProgramRows;
       }
       return this.instance.getCompiledStatements().map((statement) => {
         const binary = statement.binaryStatement >>> 0;
@@ -89494,6 +89489,28 @@ var NativeAssemblySimulator = class {
     }
   }
   cacheRuntimeProgramMetadata() {
+    if (this.architecture === "x86" && this.instance) {
+      const emulator = this.instance;
+      emulator.getNextInstruction();
+      const rows = /* @__PURE__ */ new Map();
+      for (const [index, source] of this.sourceLines.entries()) {
+        for (const address of emulator.runtime.getAddressesForSourceLine(index)) {
+          if (rows.has(address)) continue;
+          const instruction = emulator.runtime.getInstructionAt(address);
+          if (!instruction || instruction.size <= 0) continue;
+          const bytes = emulator.readMemoryBytes(address, BigInt(instruction.size));
+          rows.set(address, {
+            address: `0x${address.toString(16).padStart(8, "0").toUpperCase()}`,
+            binary: 0,
+            machine: Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" "),
+            assembly: instruction.code,
+            sourceLine: index + 1,
+            source
+          });
+        }
+      }
+      this.x86ProgramRows = [...rows.keys()].sort((a, b) => a < b ? -1 : 1).map((address) => rows.get(address));
+    }
     this.syscallAddresses = /* @__PURE__ */ new Set();
     for (const row of this.getProgramRows()) {
       const mnemonic = row.assembly.trimStart().split(/[\s,\t(]/)[0]?.toLowerCase();
@@ -90986,7 +91003,7 @@ function renderProgramView(state) {
       </div>
     `;
   }).join("");
-  const decodedFields = activeRow ? decodeProgramRow(activeRow, state.architecture).fields.map((field) => `
+  const decodedFields = activeRow && state.architecture !== "x86" ? decodeProgramRow(activeRow, state.architecture).fields.map((field) => `
     <span class="decoded-field">
       <span>${escapeHtml(fieldDisplayLabel(field))}</span>
       <code>${escapeHtml(formatFieldValue(field, "hex"))}${field.alias ? ` ${escapeHtml(field.alias)}` : ""}</code>
@@ -91009,12 +91026,12 @@ function renderProgramView(state) {
           <div class="decoded-card native-section">
             <div class="decoded-top">
               <div>
-                <div class="decoded-title">Decoded fields</div>
+                <div class="decoded-title">${state.architecture === "x86" ? "Machine bytes" : "Decoded fields"}</div>
                 <code>${escapeHtml(formatInstructionDisplay(activeRow.assembly))}</code>
               </div>
               <code>${escapeHtml(activeRow.address)}</code>
             </div>
-            <div class="decoded-fields">${decodedFields}</div>
+            <div class="decoded-fields">${state.architecture === "x86" ? `<code>${escapeHtml(activeRow.machine)}</code>` : decodedFields}</div>
             <div class="decoded-source">Source line ${activeRow.sourceLine}: ${escapeHtml(activeRow.source)}</div>
           </div>
         ` : ""}
