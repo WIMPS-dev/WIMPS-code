@@ -170,7 +170,7 @@ type X86Emulator = {
   canUndo(): boolean;
   writeMemoryBytes(address: bigint, data: Uint8Array): void;
   readMemoryBytes(address: bigint, length: bigint): Uint8Array;
-  getCompiledCode(): { decorations: unknown[]; code: string };
+  runtime: Pick<import('@specy/x86', { with: { 'resolution-mode': 'import' } }).BlinkRuntime, 'getAddressesForSourceLine' | 'getInstructionAt'>;
   getStatus(): number;
   getNextInstruction(): { address: bigint; lineNumber: number; code: string } | null;
   getPc(): bigint;
@@ -511,6 +511,7 @@ class NativeAssemblySimulator {
   private documentVersion = -1;
   private fileName = 'No file';
   private output = '';
+  private x86ProgramRows: SimProgramRow[] = [];
   private x86OutputLineBuffer = '';
   private x86OutputPassthroughLine = false;
   private assembled = false;
@@ -643,6 +644,7 @@ class NativeAssemblySimulator {
   }
 
   private resetRuntimeState() {
+    this.x86ProgramRows = [];
     this.stoppedAtBreakpointPc = undefined;
     this.output = '';
     this.x86OutputLineBuffer = '';
@@ -862,8 +864,8 @@ class NativeAssemblySimulator {
   }
 
   toState(status: SimStateMessage['status']): SimStateMessage {
-    let pc = 0;
-    try { pc = Number(this.getPc() & 0xffffffffn) >>> 0; } catch {}
+    let pc = 0n;
+    try { pc = this.getPc(); } catch {}
 
     return {
       type: 'wimps.simState',
@@ -1229,14 +1231,7 @@ class NativeAssemblySimulator {
     if (!this.instance) return [];
     try {
       if (this.architecture === 'x86') {
-        return (this.instance as X86Emulator).getCompiledCode().code.split('\n').map((line, index) => ({
-          address: '',
-          binary: 0,
-          machine: '',
-          assembly: line.trim(),
-          sourceLine: index + 1,
-          source: this.sourceLines[index] ?? line,
-        })).filter(row => row.assembly);
+        return this.x86ProgramRows;
       }
       return (this.instance as JsMips | JsRiscV).getCompiledStatements().map((statement: any) => {
         const binary = statement.binaryStatement >>> 0;
@@ -1255,6 +1250,29 @@ class NativeAssemblySimulator {
   }
 
   private cacheRuntimeProgramMetadata() {
+    if (this.architecture === 'x86' && this.instance) {
+      const emulator = this.instance as X86Emulator;
+      // Load the linked program at its entry point before reading instruction memory.
+      emulator.getNextInstruction();
+      const rows = new Map<bigint, SimProgramRow>();
+      for (const [index, source] of this.sourceLines.entries()) {
+        for (const address of emulator.runtime.getAddressesForSourceLine(index)) {
+          if (rows.has(address)) continue;
+          const instruction = emulator.runtime.getInstructionAt(address);
+          if (!instruction || instruction.size <= 0) continue;
+          const bytes = emulator.readMemoryBytes(address, BigInt(instruction.size));
+          rows.set(address, {
+            address: `0x${address.toString(16).padStart(8, '0').toUpperCase()}`,
+            binary: 0,
+            machine: Array.from(bytes, byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' '),
+            assembly: instruction.code,
+            sourceLine: index + 1,
+            source,
+          });
+        }
+      }
+      this.x86ProgramRows = [...rows.keys()].sort((a, b) => a < b ? -1 : 1).map(address => rows.get(address)!);
+    }
     this.syscallAddresses = new Set();
     for (const row of this.getProgramRows()) {
       const mnemonic = row.assembly.trimStart().split(/[\s,\t(]/)[0]?.toLowerCase();
@@ -3163,7 +3181,7 @@ function renderProgramView(state: SimStateMessage | undefined): string {
       </div>
     `;
   }).join('');
-  const decodedFields = activeRow ? decodeProgramRow(activeRow, state.architecture).fields.map(field => `
+  const decodedFields = activeRow && state.architecture !== 'x86' ? decodeProgramRow(activeRow, state.architecture).fields.map(field => `
     <span class="decoded-field">
       <span>${escapeHtml(fieldDisplayLabel(field))}</span>
       <code>${escapeHtml(formatFieldValue(field, 'hex'))}${field.alias ? ` ${escapeHtml(field.alias)}` : ''}</code>
@@ -3187,12 +3205,12 @@ function renderProgramView(state: SimStateMessage | undefined): string {
           <div class="decoded-card native-section">
             <div class="decoded-top">
               <div>
-                <div class="decoded-title">Decoded fields</div>
+                <div class="decoded-title">${state.architecture === 'x86' ? 'Machine bytes' : 'Decoded fields'}</div>
                 <code>${escapeHtml(formatInstructionDisplay(activeRow.assembly))}</code>
               </div>
               <code>${escapeHtml(activeRow.address)}</code>
             </div>
-            <div class="decoded-fields">${decodedFields}</div>
+            <div class="decoded-fields">${state.architecture === 'x86' ? `<code>${escapeHtml(activeRow.machine)}</code>` : decodedFields}</div>
             <div class="decoded-source">Source line ${activeRow.sourceLine}: ${escapeHtml(activeRow.source)}</div>
           </div>
         ` : ''}
