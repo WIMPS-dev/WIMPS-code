@@ -1100,7 +1100,11 @@ const uploadFileHandler = async (accessor: ServicesAccessor) => {
 	const instantiationService = accessor.get(IInstantiationService);
 
 	const context = explorerService.getContext(false);
-	const element = context.length ? context[0] : explorerService.roots[0];
+	const selected = context[0];
+	const element = (selected?.isDirectory ? selected : selected?.parent) ?? explorerService.roots[0];
+	if (!element || element.isReadonly) {
+		return;
+	}
 
 	try {
 		const files = await triggerUpload();

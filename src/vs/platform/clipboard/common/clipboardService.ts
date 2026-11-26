@@ -50,7 +50,7 @@ export interface IClipboardService {
 	/**
 	 * Find out if resources are copied to the clipboard.
 	 */
-	hasResources(): Promise<boolean>;
+	hasResources(options?: { skipSystemClipboard?: boolean }): Promise<boolean>;
 
 	/**
 	 * Resets the internal state of the clipboard (if any) without touching the real clipboard.

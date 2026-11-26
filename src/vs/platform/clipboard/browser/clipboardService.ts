@@ -281,7 +281,11 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 		return hash(clipboardText.substring(0, BrowserClipboardService.MAX_RESOURCE_STATE_SOURCE_LENGTH));
 	}
 
-	async hasResources(): Promise<boolean> {
+	async hasResources(options?: { skipSystemClipboard?: boolean }): Promise<boolean> {
+		if (options?.skipSystemClipboard) {
+			return this.resources.length > 0;
+		}
+
 		// Guard access to navigator.clipboard with try/catch
 		// as we have seen DOMExceptions in certain browsers
 		// due to security policies.

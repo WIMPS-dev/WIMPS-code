@@ -6,10 +6,10 @@
 import * as nls from '../../../../../nls.js';
 import { URI } from '../../../../../base/common/uri.js';
 import * as perf from '../../../../../base/common/performance.js';
-import { WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification } from '../../../../../base/common/actions.js';
+import { toAction, WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification } from '../../../../../base/common/actions.js';
 import { memoize } from '../../../../../base/common/decorators.js';
 import { IFilesConfiguration, ExplorerFolderContext, FilesExplorerFocusedContext, ExplorerFocusedContext, ExplorerRootContext, ExplorerResourceReadonlyContext, ExplorerResourceCut, ExplorerResourceMoveableToTrash, ExplorerCompressedFocusContext, ExplorerCompressedFirstFocusContext, ExplorerCompressedLastFocusContext, ExplorerResourceAvailableEditorIdsContext, VIEW_ID, ExplorerResourceWritableContext, ViewHasSomeCollapsibleRootItemContext, FoldersViewVisibleContext, ExplorerResourceParentReadOnlyContext, ExplorerFindProviderActive } from '../../common/files.js';
-import { FileCopiedContext, NEW_FILE_COMMAND_ID, NEW_FOLDER_COMMAND_ID } from '../fileActions.js';
+import { FileCopiedContext, NEW_FILE_COMMAND_ID, NEW_FOLDER_COMMAND_ID, UPLOAD_COMMAND_ID } from '../fileActions.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { ExplorerDecorationsProvider } from './explorerDecorationsProvider.js';
@@ -32,6 +32,7 @@ import { IThemeService, IFileIconTheme } from '../../../../../platform/theme/com
 import { IWorkbenchThemeService } from '../../../../services/themes/common/workbenchThemeService.js';
 import { ITreeContextMenuEvent, TreeVisibility } from '../../../../../base/browser/ui/tree/tree.js';
 import { MenuId, Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { IsWebContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { ExplorerItem, NewExplorerItem } from '../../common/explorerModel.js';
 import { ResourceLabels } from '../../../../browser/labels.js';
@@ -653,7 +654,14 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 		}
 
 		// update dynamic contexts
-		this.fileCopiedContextKey.set(await this.clipboardService.hasResources());
+		// A system clipboard read can trigger a browser Paste prompt during right-click.
+		this.fileCopiedContextKey.set(await this.clipboardService.hasResources({ skipSystemClipboard: true }));
+		if (stat && !e.isStickyScroll) {
+			this.tree.setFocus([stat]);
+			if (!this.tree.getSelection().includes(stat)) {
+				this.tree.setSelection([stat]);
+			}
+		}
 		this.setContextKeys(stat);
 
 		const selection = this.tree.getSelection();
@@ -1041,6 +1049,38 @@ const CanCreateContext = ContextKeyExpr.or(
 	ContextKeyExpr.and(ExplorerFolderContext.toNegated(), ExplorerResourceParentReadOnlyContext.toNegated())
 );
 
+const explorerTitleContext = ContextKeyExpr.equals('view', VIEW_ID);
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'wimps.explorer.newFileActions',
+			title: nls.localize('wimpsFileActions', "New File Actions"),
+			icon: Codicon.newFile,
+			menu: {
+				id: MenuId.ViewTitle,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.and(explorerTitleContext, IsWebContext),
+			},
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const bounds = DOM.getActiveElement()?.getBoundingClientRect();
+		const commandService = accessor.get(ICommandService);
+		const viewsService = accessor.get(IViewsService);
+		accessor.get(IContextMenuService).showContextMenu({
+			getAnchor: () => ({ x: bounds?.left ?? 0, y: bounds?.bottom ?? 0 }),
+			getActions: () => [
+				toAction({ id: NEW_FILE_COMMAND_ID, label: nls.localize('wimpsNewFile', "New"), run: () => commandService.executeCommand(NEW_FILE_COMMAND_ID) }),
+				toAction({ id: 'wimps.examples.focus', label: nls.localize('wimpsExamples', "Examples"), run: () => viewsService.openView('wimps.examples', true) }),
+				toAction({ id: UPLOAD_COMMAND_ID, label: nls.localize('wimpsUpload', "Upload"), run: () => commandService.executeCommand(UPLOAD_COMMAND_ID) }),
+			],
+		});
+	}
+});
+
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
@@ -1052,7 +1092,7 @@ registerAction2(class extends Action2 {
 			menu: {
 				id: MenuId.ViewTitle,
 				group: 'navigation',
-				when: ContextKeyExpr.equals('view', VIEW_ID),
+				when: ContextKeyExpr.and(explorerTitleContext, IsWebContext.negate()),
 				order: 10
 			}
 		});
