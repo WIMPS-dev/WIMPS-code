@@ -53,7 +53,6 @@ type SimStateMessage = {
   registers: SimRegister[];
   specialRegisters: SimSpecialRegister[];
   memory: SimMemoryWord[];
-  bitmap: SimBitmap;
   program: SimProgramRow[];
   symbols: SimSymbolRow[];
   cache: SimCacheAnalysis;
@@ -538,6 +537,7 @@ class NativeAssemblySimulator {
   private stats = emptyStats();
   private totalInstructions = 0;
   private memoryAccesses: Omit<CacheAccess, 'hit'>[] = [];
+  private memoryAccessStart = 0;
   private outputSnapshots: string[] = [];
   private statsSnapshots: { stats: Record<InstrCategory, number>; totalInstructions: number; memoryAccesses: Omit<CacheAccess, 'hit'>[] }[] = [];
   private syscallAddresses = new Set<number>();
@@ -671,6 +671,7 @@ class NativeAssemblySimulator {
     this.stats = emptyStats();
     this.totalInstructions = 0;
     this.memoryAccesses = [];
+    this.memoryAccessStart = 0;
     this.outputSnapshots = [];
     this.statsSnapshots = [];
     this.finishedMessageEmitted = false;
@@ -811,6 +812,7 @@ class NativeAssemblySimulator {
       this.stats = stats.stats;
       this.totalInstructions = stats.totalInstructions;
       this.memoryAccesses = [...stats.memoryAccesses];
+      this.memoryAccessStart = 0;
       this.waitingForInput = null;
       this.finishedMessageEmitted = false;
       publishSimState(this.toState('running'));
@@ -910,11 +912,10 @@ class NativeAssemblySimulator {
         };
       }),
       memory: this.readMemoryWords(ARCHITECTURES[this.architecture].dataStartAddress, 128),
-      bitmap: this.readBitmap(bitmapDisplaySettings.startAddress, BITMAP_MAX_PIXELS),
       program: this.getProgramRows(),
       symbols: this.getSymbols(),
       specialRegisters: this.getSpecialRegisters(),
-      cache: analyzeCache(this.memoryAccesses, cacheConfig),
+      cache: analyzeCache(this.orderedMemoryAccesses(), cacheConfig),
       stats: { ...this.stats },
       totalInstructions: this.totalInstructions,
       output: this.output,
@@ -1064,10 +1065,17 @@ class NativeAssemblySimulator {
   }
 
   private recordMemoryAccess(access: Omit<CacheAccess, 'hit'>) {
-    this.memoryAccesses.push(access);
-    if (this.memoryAccesses.length > CACHE_ACCESS_HISTORY_LIMIT) {
-      this.memoryAccesses.splice(0, this.memoryAccesses.length - CACHE_ACCESS_HISTORY_LIMIT);
+    if (this.memoryAccesses.length < CACHE_ACCESS_HISTORY_LIMIT) {
+      this.memoryAccesses.push(access);
+      return;
     }
+    this.memoryAccesses[this.memoryAccessStart] = access;
+    this.memoryAccessStart = (this.memoryAccessStart + 1) % CACHE_ACCESS_HISTORY_LIMIT;
+  }
+
+  private orderedMemoryAccesses() {
+    if (this.memoryAccessStart === 0) return this.memoryAccesses;
+    return this.memoryAccesses.slice(this.memoryAccessStart).concat(this.memoryAccesses.slice(0, this.memoryAccessStart));
   }
 
   private snapshotBeforeStep() {
@@ -1077,7 +1085,7 @@ class NativeAssemblySimulator {
     this.statsSnapshots.push({
       stats: { ...this.stats },
       totalInstructions: this.totalInstructions,
-      memoryAccesses: [...this.memoryAccesses],
+      memoryAccesses: [...this.orderedMemoryAccesses()],
     });
   }
 
@@ -1288,7 +1296,8 @@ class NativeAssemblySimulator {
   }
 
   readBitmapDisplay(startAddr: number): SimBitmap {
-    return this.readBitmap(startAddr, BITMAP_MAX_PIXELS);
+    const count = bitmapDisplaySettings.width * bitmapDisplaySettings.height;
+    return this.readBitmap(startAddr, Math.min(count, BITMAP_MAX_PIXELS));
   }
 
   private getProgramRows(): SimProgramRow[] {
@@ -2667,11 +2676,14 @@ class WimpsStateViewProvider implements vscode.WebviewViewProvider {
     view.onDidDispose(() => {
       this.view = undefined;
     });
+    view.onDidChangeVisibility(() => {
+      if (view.visible) this.refresh();
+    });
     this.refresh();
   }
 
   refresh() {
-    if (!this.view) return;
+    if (!this.view?.visible) return;
     if (!hasActiveAssemblyFile) {
       this.view.webview.html = renderInactiveView(this.kind);
       return;
@@ -2701,13 +2713,6 @@ function handleBitmapViewMessage(message: any) {
     height: nextHeight,
     scale: nextScale,
   };
-
-  if (latestSimState) {
-    latestSimState = {
-      ...latestSimState,
-      bitmap: nativeSimulator.readBitmapDisplay(nextAddress),
-    };
-  }
 
   for (const view of stateViews) view.refresh();
 }
@@ -3067,7 +3072,7 @@ function decodeProgramRow(row: SimProgramRow, architecture: Architecture): Decod
 
 function renderBitmapView(state: SimStateMessage | undefined): string {
   if (!state) return renderIdleView('Bitmap Display', 'Run a bitmap program to inspect pixels from memory.', ['0x10010000', '0x00RRGGBB']);
-  const bitmap = state.bitmap ?? { startAddress: '0x10010000', colors: [] };
+  const bitmap = nativeSimulator.readBitmapDisplay(bitmapDisplaySettings.startAddress);
   const colorsJson = JSON.stringify(bitmap.colors).replace(/</g, '\\u003c');
   const settings = bitmapDisplaySettings;
   const addressText = `0x${settings.startAddress.toString(16).toUpperCase()}`;
