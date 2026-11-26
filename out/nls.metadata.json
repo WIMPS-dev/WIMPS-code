@@ -16934,7 +16934,11 @@
 			"createNewFolder",
 			"explorerSection",
 			"refreshExplorer",
-			"refreshExplorerMetadata"
+			"refreshExplorerMetadata",
+			"wimpsExamples",
+			"wimpsFileActions",
+			"wimpsNewFile",
+			"wimpsUpload"
 		],
 		"vs/workbench/contrib/files/browser/views/explorerViewer": [
 			"confirmMove",
@@ -41118,7 +41122,11 @@
 			"New Folder...",
 			"Explorer Section: {0}",
 			"Refresh Explorer",
-			"Forces a refresh of the Explorer."
+			"Forces a refresh of the Explorer.",
+			"Examples",
+			"New File Actions",
+			"New",
+			"Upload"
 		],
 		"vs/workbench/contrib/files/browser/views/explorerViewer": [
 			"Are you sure you want to move '{0}' into '{1}'?",
