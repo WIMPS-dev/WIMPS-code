@@ -4,7 +4,6 @@
   "description": "Run MIPS, RISC-V, and x86 assembly programs inside VS Code.",
   "version": "0.0.1",
   "publisher": "wimps",
-  "private": true,
   "license": "MIT",
   "engines": {
     "vscode": "^1.92.0"
@@ -576,33 +575,5 @@
         }
       ]
     }
-  },
-  "scripts": {
-    "compile": "npm run check-types && npm run compile:desktop && npm run compile:web && npm run compile:web-tests && npm run check-size",
-    "check-types": "tsc -p ./ --noEmit",
-    "compile:desktop": "esbuild src/extension.ts --bundle --format=cjs --platform=node --external:vscode --define:import.meta.url='\"file:///wimps-x86/index.mjs\"' --outfile=out/extension.js --sourcemap",
-    "compile:web": "esbuild src/extension.ts --bundle --format=cjs --platform=browser --external:vscode --external:node:* --external:module --define:import.meta.url='\"file:///wimps-x86/index.mjs\"' --outfile=out/extension-web.js --minify --keep-names --sourcemap",
-    "compile:web-tests": "esbuild test/web/extensionTests.ts --bundle --format=cjs --platform=browser --external:vscode --outfile=out/test-web.js --sourcemap",
-    "check-size": "node scripts/check-bundle-size.cjs",
-    "test:smoke": "npm run compile && node scripts/smoke-extension.cjs",
-    "test:extension": "npm run compile && node test/runTest.cjs",
-    "test:extension-web": "npm run compile && node test/runWebTest.cjs",
-    "watch": "tsc -watch -p ./",
-    "vscode:prepublish": "npm run compile",
-    "build": "npm run compile"
-  },
-  "dependencies": {
-    "@specy/mips": "^1.2.8",
-    "@specy/risc-v": "^1.1.0",
-    "@specy/x86": "^2.0.5"
-  },
-  "devDependencies": {
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^22.10.0",
-    "@types/vscode": "^1.92.0",
-    "@vscode/test-electron": "^2.5.2",
-    "esbuild": "^0.28.1",
-    "mocha": "^11.7.6",
-    "typescript": "^5.7.0"
   }
 }
